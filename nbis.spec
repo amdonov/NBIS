@@ -59,3 +59,6 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Mon Mar 18 2013 Aaron Donovan <amdonov@gmail.com> 4.1.0-1
+- new package built with tito
+
