@@ -62,66 +62,65 @@ of the software.
 /* General supporting global variables */
 /**************************************************************************/
 
-int colp[ COLP_SIZE_1 ][ COLP_SIZE_2 ];		/* Output from match(), this is a sorted table of compatible edge pairs containing: */
-						/*	DeltaThetaKJs, Subject's K, J, then On-File's {K,J} or {J,K} depending */
+int colp[COLP_SIZE_1][COLP_SIZE_2];	/* Output from match(), this is a sorted table of compatible edge pairs containing: */
+						/*      DeltaThetaKJs, Subject's K, J, then On-File's {K,J} or {J,K} depending */
 						/* Sorted first on Subject's point index K, */
-						/*	then On-File's K or J point index (depending), */
-						/*	lastly on Subject's J point index */
-int scols[ SCOLS_SIZE_1 ][ COLS_SIZE_2 ];	/* Subject's pointwise comparison table containing: */
-						/*	Distance,min(BetaK,BetaJ),max(BetaK,BbetaJ), K,J,ThetaKJ */
-int fcols[ FCOLS_SIZE_1 ][ COLS_SIZE_2 ];	/* On-File Record's pointwise comparison table with: */
-						/*	Distance,min(BetaK,BetaJ),max(BetaK,BbetaJ),K,J, ThetaKJ */
-int * scolpt[ SCOLPT_SIZE ];			/* Subject's list of pointers to pointwise comparison rows, sorted on: */
-						/*	Distance, min(BetaK,BetaJ), then max(BetaK,BetaJ) */
-int * fcolpt[ FCOLPT_SIZE ];			/* On-File Record's list of pointers to pointwise comparison rows sorted on: */
-						/*	Distance, min(BetaK,BetaJ), then max(BetaK,BetaJ) */
-int sc[ SC_SIZE ];				/* Flags all compatible edges in the Subject's Web */
+						/*      then On-File's K or J point index (depending), */
+						/*      lastly on Subject's J point index */
+int scols[SCOLS_SIZE_1][COLS_SIZE_2];	/* Subject's pointwise comparison table containing: */
+						/*      Distance,min(BetaK,BetaJ),max(BetaK,BbetaJ), K,J,ThetaKJ */
+int fcols[FCOLS_SIZE_1][COLS_SIZE_2];	/* On-File Record's pointwise comparison table with: */
+						/*      Distance,min(BetaK,BetaJ),max(BetaK,BbetaJ),K,J, ThetaKJ */
+int *scolpt[SCOLPT_SIZE];	/* Subject's list of pointers to pointwise comparison rows, sorted on: */
+						/*      Distance, min(BetaK,BetaJ), then max(BetaK,BetaJ) */
+int *fcolpt[FCOLPT_SIZE];	/* On-File Record's list of pointers to pointwise comparison rows sorted on: */
+						/*      Distance, min(BetaK,BetaJ), then max(BetaK,BetaJ) */
+int sc[SC_SIZE];		/* Flags all compatible edges in the Subject's Web */
 
-int yl[ YL_SIZE_1 ][ YL_SIZE_2 ];
+int yl[YL_SIZE_1][YL_SIZE_2];
 
 
 /**************************************************************************/
 /* Globals used significantly by sift() */
 /**************************************************************************/
 #ifdef TARGET_OS
-   int rq[ RQ_SIZE ];
-   int tq[ TQ_SIZE ];
-   int zz[ ZZ_SIZE ];
+int rq[RQ_SIZE];
+int tq[TQ_SIZE];
+int zz[ZZ_SIZE];
 
-   int rx[ RX_SIZE ];
-   int mm[ MM_SIZE ];
-   int nn[ NN_SIZE ];
+int rx[RX_SIZE];
+int mm[MM_SIZE];
+int nn[NN_SIZE];
 
-   int qq[ QQ_SIZE ];
+int qq[QQ_SIZE];
 
-   int rk[ RK_SIZE ];
+int rk[RK_SIZE];
 
-   int cp[ CP_SIZE ];
-   int rp[ RP_SIZE ];
+int cp[CP_SIZE];
+int rp[RP_SIZE];
 
-   int rf[RF_SIZE_1][RF_SIZE_2];
-   int cf[CF_SIZE_1][CF_SIZE_2];
+int rf[RF_SIZE_1][RF_SIZE_2];
+int cf[CF_SIZE_1][CF_SIZE_2];
 
-   int y[20000];
+int y[20000];
 #else
-   int rq[ RQ_SIZE ] = {};
-   int tq[ TQ_SIZE ] = {};
-   int zz[ ZZ_SIZE ] = {};
+int rq[RQ_SIZE] = { };
+int tq[TQ_SIZE] = { };
+int zz[ZZ_SIZE] = { };
 
-   int rx[ RX_SIZE ] = {};
-   int mm[ MM_SIZE ] = {};
-   int nn[ NN_SIZE ] = {};
+int rx[RX_SIZE] = { };
+int mm[MM_SIZE] = { };
+int nn[NN_SIZE] = { };
 
-   int qq[ QQ_SIZE ] = {};
+int qq[QQ_SIZE] = { };
 
-   int rk[ RK_SIZE ] = {};
+int rk[RK_SIZE] = { };
 
-   int cp[ CP_SIZE ] = {};
-   int rp[ RP_SIZE ] = {};
+int cp[CP_SIZE] = { };
+int rp[RP_SIZE] = { };
 
-   int rf[RF_SIZE_1][RF_SIZE_2] = {};
-   int cf[CF_SIZE_1][CF_SIZE_2] = {};
+int rf[RF_SIZE_1][RF_SIZE_2] = { };
+int cf[CF_SIZE_1][CF_SIZE_2] = { };
 
-   int y[20000] = {};
+int y[20000] = { };
 #endif
-

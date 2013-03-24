@@ -74,41 +74,43 @@ of the software.
 /* extern char * get_progname( void ); */
 
 /***********************************************************************/
-int sort_quality_decreasing( const void * a, const void * b )
+int
+sort_quality_decreasing (const void *a, const void *b)
 {
-struct minutiae_struct * af;
-struct minutiae_struct * bf;
+  struct minutiae_struct *af;
+  struct minutiae_struct *bf;
 
-af = (struct minutiae_struct *) a;
-bf = (struct minutiae_struct *) b;
+  af = (struct minutiae_struct *) a;
+  bf = (struct minutiae_struct *) b;
 
-if ( af->col[3] > bf->col[3] )
-	return -1;
-if ( af->col[3] < bf->col[3] )
-	return 1;
-return 0;
+  if (af->col[3] > bf->col[3])
+    return -1;
+  if (af->col[3] < bf->col[3])
+    return 1;
+  return 0;
 }
 
 /***********************************************************************/
-int sort_x_y( const void * a, const void * b )
+int
+sort_x_y (const void *a, const void *b)
 {
-struct minutiae_struct * af;
-struct minutiae_struct * bf;
+  struct minutiae_struct *af;
+  struct minutiae_struct *bf;
 
-af = (struct minutiae_struct *) a;
-bf = (struct minutiae_struct *) b;
+  af = (struct minutiae_struct *) a;
+  bf = (struct minutiae_struct *) b;
 
-if ( af->col[0] < bf->col[0] )
-	return -1;
-if ( af->col[0] > bf->col[0] )
-	return 1;
+  if (af->col[0] < bf->col[0])
+    return -1;
+  if (af->col[0] > bf->col[0])
+    return 1;
 
-if ( af->col[1] < bf->col[1] )
-	return -1;
-if ( af->col[1] > bf->col[1] )
-	return 1;
+  if (af->col[1] < bf->col[1])
+    return -1;
+  if (af->col[1] > bf->col[1])
+    return 1;
 
-return 0;
+  return 0;
 }
 
 /********************************************************
@@ -117,32 +119,38 @@ qsort_decreasing() - quicksort an array of integers in decreasing
                      and Ted Zwiesler, 1986]
 ********************************************************/
 /* Used by custom quicksort code below */
-static int   stack[BZ_STACKSIZE];
-static int * stack_pointer = stack;
+static int stack[BZ_STACKSIZE];
+static int *stack_pointer = stack;
 
 /***********************************************************************/
 /* return values: 0 == successful, 1 == error */
-static int popstack( int *popval )
+static int
+popstack (int *popval)
 {
-if ( --stack_pointer < stack ) {
-	fprintf( errorfp, "%s: ERROR: popstack(): stack underflow\n", get_progname() );
-	return 1;
-}
+  if (--stack_pointer < stack)
+    {
+      fprintf (errorfp, "%s: ERROR: popstack(): stack underflow\n",
+	       get_progname ());
+      return 1;
+    }
 
-*popval = *stack_pointer;
-return 0;
+  *popval = *stack_pointer;
+  return 0;
 }
 
 /***********************************************************************/
 /* return values: 0 == successful, 1 == error */
-static int pushstack( int position )
+static int
+pushstack (int position)
 {
-*stack_pointer++ = position;
-if ( stack_pointer > ( stack + BZ_STACKSIZE ) ) {
-	fprintf( errorfp, "%s: ERROR: pushstack(): stack overflow\n", get_progname() );
-	return 1;
-}
-return 0;
+  *stack_pointer++ = position;
+  if (stack_pointer > (stack + BZ_STACKSIZE))
+    {
+      fprintf (errorfp, "%s: ERROR: pushstack(): stack overflow\n",
+	       get_progname ());
+      return 1;
+    }
+  return 0;
 }
 
 /***********************************************************************/
@@ -150,33 +158,49 @@ return 0;
 select_pivot()
 selects a pivot from a list being sorted using the Singleton Method.
 *******************************************************************/
-static int select_pivot( struct cell v[], int left, int right )
+static int
+select_pivot (struct cell v[], int left, int right)
 {
-int midpoint;
+  int midpoint;
 
 
-midpoint = ( left + right ) / 2;
-if ( v[left].index <= v[midpoint].index ) {
-	if ( v[midpoint].index <= v[right].index ) {
-		return midpoint;
-	} else {
-		if ( v[right].index > v[left].index ) {
-			return right;
-		} else {
-			return left;
-		}
+  midpoint = (left + right) / 2;
+  if (v[left].index <= v[midpoint].index)
+    {
+      if (v[midpoint].index <= v[right].index)
+	{
+	  return midpoint;
 	}
-} else {
-	if ( v[left].index < v[right].index ) {
-		return left;
-	} else {
-		if ( v[right].index < v[midpoint].index ) {
-			return midpoint;
-		} else {
-			return right;
-		}
+      else
+	{
+	  if (v[right].index > v[left].index)
+	    {
+	      return right;
+	    }
+	  else
+	    {
+	      return left;
+	    }
 	}
-}
+    }
+  else
+    {
+      if (v[left].index < v[right].index)
+	{
+	  return left;
+	}
+      else
+	{
+	  if (v[right].index < v[midpoint].index)
+	    {
+	      return midpoint;
+	    }
+	  else
+	    {
+	      return right;
+	    }
+	}
+    }
 }
 
 /***********************************************************************/
@@ -185,40 +209,53 @@ partition_dec()
 Inputs a pivot element making comparisons and swaps with other elements in a list,
 until pivot resides at its correct position in the list.
 ********************************************************/
-static void partition_dec( struct cell v[], int *llen, int *rlen, int *ll, int *lr, int *rl, int *rr, int p, int l, int r )
+static void
+partition_dec (struct cell v[], int *llen, int *rlen, int *ll, int *lr,
+	       int *rl, int *rr, int p, int l, int r)
 {
 #define iswap(a,b) { int itmp = (a); a = (b); b = itmp; }
 
-*ll = l;
-*rr = r;
-while ( 1 ) {
-	if ( l < p ) {
-		if ( v[l].index < v[p].index ) {
-			iswap( v[l].index, v[p].index )
-			iswap( v[l].item,  v[p].item )
-			p = l;
-		} else {
-			l++;
-		}
-	} else {
-		if ( r > p ) {
-			if ( v[r].index > v[p].index ) {
-				iswap( v[r].index, v[p].index )
-				iswap( v[r].item,  v[p].item )
-				p = r;
-				l++;
-			} else {
-				r--;
-			}
-		} else {
-			*lr = p - 1;
-			*rl = p + 1;
-			*llen = *lr - *ll + 1;
-			*rlen = *rr - *rl + 1;
-			break;
-		}
+  *ll = l;
+  *rr = r;
+  while (1)
+    {
+      if (l < p)
+	{
+	  if (v[l].index < v[p].index)
+	    {
+	      iswap (v[l].index, v[p].index)
+		iswap (v[l].item, v[p].item) p = l;
+	    }
+	  else
+	    {
+	      l++;
+	    }
 	}
-}
+      else
+	{
+	  if (r > p)
+	    {
+	      if (v[r].index > v[p].index)
+		{
+		  iswap (v[r].index, v[p].index)
+		    iswap (v[r].item, v[p].item) p = r;
+		  l++;
+		}
+	      else
+		{
+		  r--;
+		}
+	    }
+	  else
+	    {
+	      *lr = p - 1;
+	      *rl = p + 1;
+	      *llen = *lr - *ll + 1;
+	      *rlen = *rr - *rl + 1;
+	      break;
+	    }
+	}
+    }
 }
 
 /***********************************************************************/
@@ -229,80 +266,91 @@ sorted, a left subscript pointing to where the  sort is to begin in the index ar
 subscript where to end. This module invokes a  decreasing quick-sort sorting the index array  from l to r.
 ********************************************************/
 /* return values: 0 == successful, 1 == error */
-static int qsort_decreasing( struct cell v[], int left, int right )
+static int
+qsort_decreasing (struct cell v[], int left, int right)
 {
-int pivot;
-int llen, rlen;
-int lleft, lright, rleft, rright;
+  int pivot;
+  int llen, rlen;
+  int lleft, lright, rleft, rright;
 
 
-if ( pushstack( left  ))
-	return 1;
-if ( pushstack( right ))
-	return 2;
-while ( stack_pointer != stack ) {
-	if (popstack(&right))
-		return 3;
-	if (popstack(&left ))
-		return 4;
-	if ( right - left > 0 ) {
-		pivot = select_pivot( v, left, right );
-		partition_dec( v, &llen, &rlen, &lleft, &lright, &rleft, &rright, pivot, left, right );
-		if ( llen > rlen ) {
-			if ( pushstack( lleft  ))
-				return 5;
-			if ( pushstack( lright ))
-				return 6;
-			if ( pushstack( rleft  ))
-				return 7;
-			if ( pushstack( rright ))
-				return 8;
-		} else{
-			if ( pushstack( rleft  ))
-				return 9;
-			if ( pushstack( rright ))
-				return 10;
-			if ( pushstack( lleft  ))
-				return 11;
-			if ( pushstack( lright ))
-				return 12;
-		}
+  if (pushstack (left))
+    return 1;
+  if (pushstack (right))
+    return 2;
+  while (stack_pointer != stack)
+    {
+      if (popstack (&right))
+	return 3;
+      if (popstack (&left))
+	return 4;
+      if (right - left > 0)
+	{
+	  pivot = select_pivot (v, left, right);
+	  partition_dec (v, &llen, &rlen, &lleft, &lright, &rleft, &rright,
+			 pivot, left, right);
+	  if (llen > rlen)
+	    {
+	      if (pushstack (lleft))
+		return 5;
+	      if (pushstack (lright))
+		return 6;
+	      if (pushstack (rleft))
+		return 7;
+	      if (pushstack (rright))
+		return 8;
+	    }
+	  else
+	    {
+	      if (pushstack (rleft))
+		return 9;
+	      if (pushstack (rright))
+		return 10;
+	      if (pushstack (lleft))
+		return 11;
+	      if (pushstack (lright))
+		return 12;
+	    }
 	}
-}
-return 0;
+    }
+  return 0;
 }
 
 /***********************************************************************/
 /* return values: 0 == successful, 1 == error */
-int sort_order_decreasing(
-		int values[],		/* INPUT:  the unsorted values themselves */
-		int num,		/* INPUT:  the number of values */
-		int order[]		/* OUTPUT: the order for each of the values if sorted */
-		)
+int
+sort_order_decreasing (int values[],	/* INPUT:  the unsorted values themselves */
+		       int num,	/* INPUT:  the number of values */
+		       int order[]	/* OUTPUT: the order for each of the values if sorted */
+  )
 {
-int i;
-struct cell * cells;
+  int i;
+  struct cell *cells;
 
 
-cells = (struct cell *) malloc( num * sizeof(struct cell) );
-if ( cells == (struct cell *) NULL ){
-	fprintf( errorfp, "%s: ERROR: malloc(): struct cell\n", get_progname() );
-        return 1;
-}
+  cells = (struct cell *) malloc (num * sizeof (struct cell));
+  if (cells == (struct cell *) NULL)
+    {
+      fprintf (errorfp, "%s: ERROR: malloc(): struct cell\n",
+	       get_progname ());
+      return 1;
+    }
 
-for( i = 0; i < num; i++ ) {
-	cells[i].index = values[i];
-	cells[i].item  = i;
-}
+  for (i = 0; i < num; i++)
+    {
+      cells[i].index = values[i];
+      cells[i].item = i;
+    }
 
-if ( qsort_decreasing( cells, 0, num-1 ) < 0)
-	return 2;
+  if (qsort_decreasing (cells, 0, num - 1) < 0)
+    return 2;
 
-for( i = 0; i < num; i++ ) {
-	order[i] = cells[i].item;
-}
+  for (i = 0; i < num; i++)
+    {
+      order[i] = cells[i].item;
+    }
 
-free( (void *) cells );
+  free ((void *) cells);
 
-return 0;
+  return 0;
 }

@@ -69,43 +69,39 @@ of the software.
 
 
 /***********************************************************************/
-char * malloc_or_exit( int nbytes, const char * what )
+char *
+malloc_or_exit (int nbytes, const char *what)
 {
-char * p;
+  char *p;
 
 /* These are now externally defined in bozorth.h */
 /* extern FILE * errorfp; */
 /* extern char * get_progname( void ); */
 
 
-p = malloc( (size_t) nbytes );
-if ( p == CNULL ) {
-	fprintf( errorfp, "%s: ERROR: malloc() of %d bytes for %s failed: %s\n",
-						get_progname(),
-						nbytes,
-						what,
-						strerror( errno )
-						);
-	exit(1);
-}
-return p;
+  p = malloc ((size_t) nbytes);
+  if (p == CNULL)
+    {
+      fprintf (errorfp, "%s: ERROR: malloc() of %d bytes for %s failed: %s\n",
+	       get_progname (), nbytes, what, strerror (errno));
+      exit (1);
+    }
+  return p;
 }
 
 /***********************************************************************/
 /* returns CNULL on error */
-char * malloc_or_return_error( int nbytes, const char * what )
+char *
+malloc_or_return_error (int nbytes, const char *what)
 {
-char * p;
+  char *p;
 
-p = malloc( (size_t) nbytes );
-if ( p == CNULL ) {
-	fprintf( errorfp, "%s: ERROR: malloc() of %d bytes for %s failed: %s\n",
-						get_progname(),
-						nbytes,
-						what,
-						strerror( errno )
-						);
-	return(CNULL);
-}
-return p;
+  p = malloc ((size_t) nbytes);
+  if (p == CNULL)
+    {
+      fprintf (errorfp, "%s: ERROR: malloc() of %d bytes for %s failed: %s\n",
+	       get_progname (), nbytes, what, strerror (errno));
+      return (CNULL);
+    }
+  return p;
 }
