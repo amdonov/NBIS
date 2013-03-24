@@ -230,45 +230,47 @@ extern FILE *errorfp;
 /* In: BZ_GBLS.C */
 /**************************************************************************/
 /* Global arrays supporting "core" bozorth algorithm */
-extern int colp[ COLP_SIZE_1 ][ COLP_SIZE_2 ];
-extern int scols[ SCOLS_SIZE_1 ][ COLS_SIZE_2 ];
-extern int fcols[ FCOLS_SIZE_1 ][ COLS_SIZE_2 ];
-extern int * scolpt[ SCOLPT_SIZE ];
-extern int * fcolpt[ FCOLPT_SIZE ];
-extern int sc[ SC_SIZE ];
-extern int yl[ YL_SIZE_1 ][ YL_SIZE_2 ];
+struct bz_data_struct {
+ int colp[ COLP_SIZE_1 ][ COLP_SIZE_2 ];
+ int scols[ SCOLS_SIZE_1 ][ COLS_SIZE_2 ];
+ int fcols[ FCOLS_SIZE_1 ][ COLS_SIZE_2 ];
+ int * scolpt[ SCOLPT_SIZE ];
+ int * fcolpt[ FCOLPT_SIZE ];
+ int sc[ SC_SIZE ];
+ int yl[ YL_SIZE_1 ][ YL_SIZE_2 ];
 /* Global arrays supporting "core" bozorth algorithm continued: */
 /*    Globals used significantly by sift() */
-extern int rq[ RQ_SIZE ];
-extern int tq[ TQ_SIZE ];
-extern int zz[ ZZ_SIZE ];
-extern int rx[ RX_SIZE ];
-extern int mm[ MM_SIZE ];
-extern int nn[ NN_SIZE ];
-extern int qq[ QQ_SIZE ];
-extern int rk[ RK_SIZE ];
-extern int cp[ CP_SIZE ];
-extern int rp[ RP_SIZE ];
-extern int rf[RF_SIZE_1][RF_SIZE_2];
-extern int cf[CF_SIZE_1][CF_SIZE_2];
-extern int y[20000];
+ int rq[ RQ_SIZE ];
+ int tq[ TQ_SIZE ];
+ int zz[ ZZ_SIZE ];
+ int rx[ RX_SIZE ];
+ int mm[ MM_SIZE ];
+ int nn[ NN_SIZE ];
+ int qq[ QQ_SIZE ];
+ int rk[ RK_SIZE ];
+ int cp[ CP_SIZE ];
+ int rp[ RP_SIZE ];
+ int rf[RF_SIZE_1][RF_SIZE_2];
+ int cf[CF_SIZE_1][CF_SIZE_2];
+ int y[20000];
+};
 
 /**************************************************************************/
 /**************************************************************************/
 /* ROUTINE PROTOTYPES */
 /**************************************************************************/
 /* In: BZ_DRVRS.C */
-extern int bozorth_probe_init( struct xyt_struct *);
-extern int bozorth_gallery_init( struct xyt_struct *);
+extern int bozorth_probe_init(struct bz_data_struct*, struct xyt_struct *);
+extern int bozorth_gallery_init(struct bz_data_struct*, struct xyt_struct *);
 extern int bozorth_to_gallery(int, struct xyt_struct *, struct xyt_struct *);
 extern int bozorth_main(struct xyt_struct *, struct xyt_struct *);
 /* In: BOZORTH3.C */
 extern void bz_comp(int, int [], int [], int [], int *, int [][COLS_SIZE_2],
                     int *[]);
 extern void bz_find(int *, int *[]);
-extern int bz_match(int, int);
-extern int bz_match_score(int, struct xyt_struct *, struct xyt_struct *);
-extern void bz_sift(int *, int, int *, int, int, int, int *, int *);
+extern int bz_match(struct bz_data_struct*, int, int);
+extern int bz_match_score(struct bz_data_struct*, int, struct xyt_struct *, struct xyt_struct *);
+extern void bz_sift(struct bz_data_struct*, int *, int, int *, int, int, int, int *, int *);
 /* In: BZ_ALLOC.C */
 extern char *malloc_or_exit(int, const char *);
 extern char *malloc_or_return_error(int, const char *);

@@ -60,7 +60,6 @@ LIBRARY	:= libbozorth3
 SRC	:= bozorth3.c \
 	bz_alloc.c \
 	bz_drvrs.c \
-	bz_gbls.c \
 	bz_io.c \
 	bz_sort.c 
 #

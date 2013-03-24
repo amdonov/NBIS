@@ -119,32 +119,30 @@ qsort_decreasing() - quicksort an array of integers in decreasing
                      and Ted Zwiesler, 1986]
 ********************************************************/
 /* Used by custom quicksort code below */
-static int stack[BZ_STACKSIZE];
-static int *stack_pointer = stack;
 
 /***********************************************************************/
 /* return values: 0 == successful, 1 == error */
 static int
-popstack (int *popval)
+popstack (int *stack, int **stack_pointer, int *popval)
 {
-  if (--stack_pointer < stack)
+  if (--(*stack_pointer) < stack)
     {
       fprintf (errorfp, "%s: ERROR: popstack(): stack underflow\n",
 	       get_progname ());
       return 1;
     }
 
-  *popval = *stack_pointer;
+  *popval = **stack_pointer;
   return 0;
 }
 
 /***********************************************************************/
 /* return values: 0 == successful, 1 == error */
 static int
-pushstack (int position)
+pushstack (int *stack, int **stack_pointer, int position)
 {
-  *stack_pointer++ = position;
-  if (stack_pointer > (stack + BZ_STACKSIZE))
+  *(*stack_pointer)++ = position;
+  if (*stack_pointer > (stack + BZ_STACKSIZE))
     {
       fprintf (errorfp, "%s: ERROR: pushstack(): stack overflow\n",
 	       get_progname ());
@@ -267,22 +265,23 @@ subscript where to end. This module invokes a  decreasing quick-sort sorting the
 ********************************************************/
 /* return values: 0 == successful, 1 == error */
 static int
-qsort_decreasing (struct cell v[], int left, int right)
+qsort_decreasing (int *stack, int **stack_pointer, struct cell v[], int left,
+		  int right)
 {
   int pivot;
   int llen, rlen;
   int lleft, lright, rleft, rright;
 
 
-  if (pushstack (left))
+  if (pushstack (stack, stack_pointer, left))
     return 1;
-  if (pushstack (right))
+  if (pushstack (stack, stack_pointer, right))
     return 2;
-  while (stack_pointer != stack)
+  while (*stack_pointer != stack)
     {
-      if (popstack (&right))
+      if (popstack (stack, stack_pointer, &right))
 	return 3;
-      if (popstack (&left))
+      if (popstack (stack, stack_pointer, &left))
 	return 4;
       if (right - left > 0)
 	{
@@ -291,24 +290,24 @@ qsort_decreasing (struct cell v[], int left, int right)
 			 pivot, left, right);
 	  if (llen > rlen)
 	    {
-	      if (pushstack (lleft))
+	      if (pushstack (stack, stack_pointer, lleft))
 		return 5;
-	      if (pushstack (lright))
+	      if (pushstack (stack, stack_pointer, lright))
 		return 6;
-	      if (pushstack (rleft))
+	      if (pushstack (stack, stack_pointer, rleft))
 		return 7;
-	      if (pushstack (rright))
+	      if (pushstack (stack, stack_pointer, rright))
 		return 8;
 	    }
 	  else
 	    {
-	      if (pushstack (rleft))
+	      if (pushstack (stack, stack_pointer, rleft))
 		return 9;
-	      if (pushstack (rright))
+	      if (pushstack (stack, stack_pointer, rright))
 		return 10;
-	      if (pushstack (lleft))
+	      if (pushstack (stack, stack_pointer, lleft))
 		return 11;
-	      if (pushstack (lright))
+	      if (pushstack (stack, stack_pointer, lright))
 		return 12;
 	    }
 	}
@@ -324,6 +323,13 @@ sort_order_decreasing (int values[],	/* INPUT:  the unsorted values themselves *
 		       int order[]	/* OUTPUT: the order for each of the values if sorted */
   )
 {
+  int stack[BZ_STACKSIZE];
+  int j;
+  for (j = 0; j < BZ_STACKSIZE; j++)
+    {
+      stack[j] = 0;
+    }
+  int *stack_pointer = stack;
   int i;
   struct cell *cells;
 
@@ -342,7 +348,7 @@ sort_order_decreasing (int values[],	/* INPUT:  the unsorted values themselves *
       cells[i].item = i;
     }
 
-  if (qsort_decreasing (cells, 0, num - 1) < 0)
+  if (qsort_decreasing (stack, &stack_pointer, cells, 0, num - 1) < 0)
     return 2;
 
   for (i = 0; i < num; i++)

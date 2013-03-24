@@ -79,7 +79,8 @@ of the software.
 /**************************************************************************/
 
 int
-bozorth_probe_init (struct xyt_struct *pstruct)
+bozorth_probe_init (struct bz_data_struct *pbz_data,
+		    struct xyt_struct *pstruct)
 {
   int sim;			/* number of pointwise comparisons for Subject's record */
   int msim;			/* Pruned length of Subject's comparison pointer list */
@@ -90,13 +91,14 @@ bozorth_probe_init (struct xyt_struct *pstruct)
 /* This builds a "Web" of relative edge statistics between points. */
   bz_comp (pstruct->nrows,
 	   pstruct->xcol,
-	   pstruct->ycol, pstruct->thetacol, &sim, scols, scolpt);
+	   pstruct->ycol,
+	   pstruct->thetacol, &sim, pbz_data->scols, pbz_data->scolpt);
 
   msim = sim;			/* Init search to end of Subject's pointwise comparison table (last edge in Web) */
 
 
 
-  bz_find (&msim, scolpt);
+  bz_find (&msim, pbz_data->scolpt);
 
 
 
@@ -113,7 +115,8 @@ bozorth_probe_init (struct xyt_struct *pstruct)
 /**************************************************************************/
 
 int
-bozorth_gallery_init (struct xyt_struct *gstruct)
+bozorth_gallery_init (struct bz_data_struct *pbz_data,
+		      struct xyt_struct *gstruct)
 {
   int fim;			/* number of pointwise comparisons for On-File record */
   int mfim;			/* Pruned length of On-File Record's pointer list */
@@ -123,13 +126,14 @@ bozorth_gallery_init (struct xyt_struct *gstruct)
 /* This builds a "Web" of relative edge statistics between points. */
   bz_comp (gstruct->nrows,
 	   gstruct->xcol,
-	   gstruct->ycol, gstruct->thetacol, &fim, fcols, fcolpt);
+	   gstruct->ycol,
+	   gstruct->thetacol, &fim, pbz_data->fcols, pbz_data->fcolpt);
 
   mfim = fim;			/* Init search to end of On-File Record's pointwise comparison table (last edge in Web) */
 
 
 
-  bz_find (&mfim, fcolpt);
+  bz_find (&mfim, pbz_data->fcolpt);
 
 
 
@@ -149,12 +153,17 @@ int
 bozorth_to_gallery (int probe_len,
 		    struct xyt_struct *pstruct, struct xyt_struct *gstruct)
 {
+  struct bz_data_struct *bz_data;
   int np;
   int gallery_len;
+  int res;
 
-  gallery_len = bozorth_gallery_init (gstruct);
-  np = bz_match (probe_len, gallery_len);
-  return bz_match_score (np, pstruct, gstruct);
+  bz_data = malloc (sizeof (struct bz_data_struct));
+  gallery_len = bozorth_gallery_init (bz_data, gstruct);
+  np = bz_match (bz_data, probe_len, gallery_len);
+  res = bz_match_score (bz_data, np, pstruct, gstruct);
+  free (bz_data);
+  return res;
 }
 
 /**************************************************************************/
@@ -162,42 +171,45 @@ bozorth_to_gallery (int probe_len,
 int
 bozorth_main (struct xyt_struct *pstruct, struct xyt_struct *gstruct)
 {
+  struct bz_data_struct *bz_data;
   int ms;
   int np;
   int probe_len;
   int gallery_len;
 
-
+  bz_data = malloc (sizeof (struct bz_data_struct));
+  memset (bz_data, 0, sizeof (struct bz_data_struct));
 
 #ifdef DEBUG
   printf ("PROBE_INIT() called\n");
 #endif
-  probe_len = bozorth_probe_init (pstruct);
+  probe_len = bozorth_probe_init (bz_data, pstruct);
 
 
 #ifdef DEBUG
   printf ("GALLERY_INIT() called\n");
 #endif
-  gallery_len = bozorth_gallery_init (gstruct);
+  gallery_len = bozorth_gallery_init (bz_data, gstruct);
 
 
 #ifdef DEBUG
   printf ("BZ_MATCH() called\n");
 #endif
-  np = bz_match (probe_len, gallery_len);
+  np = bz_match (bz_data, probe_len, gallery_len);
 
 
 #ifdef DEBUG
   printf ("BZ_MATCH() returned %d edge pairs\n", np);
   printf ("COMPUTE() called\n");
 #endif
-  ms = bz_match_score (np, pstruct, gstruct);
+  ms = bz_match_score (bz_data, np, pstruct, gstruct);
 
 
 #ifdef DEBUG
   printf ("COMPUTE() returned %d\n", ms);
 #endif
 
+  free (bz_data);
 
   return ms;
 }

@@ -481,6 +481,7 @@ bz_load (const char *xyt_file)
     }
 
   xyt_s = bz_prune (xytq_s, 0);
+  free (xytq_s);
 
   if (verbose_load)
     fprintf (errorfp, "Loaded %s\n", xyt_file);

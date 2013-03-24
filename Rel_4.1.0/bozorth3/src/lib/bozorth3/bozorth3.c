@@ -79,6 +79,7 @@ of the software.
 ***********************************************************************/
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <bozorth.h>
 
 /***********************************************************************/
@@ -359,7 +360,7 @@ rtp_insert (int *rtp[], int l, int idx, int *ptr)
 /* Return value is the # of compatible edge pairs           */
 /***********************************************************************/
 int
-bz_match (int probe_ptrlist_len,	/* INPUT:  pruned length of Subject's pointer list */
+bz_match (struct bz_data_struct *pbz_data, int probe_ptrlist_len,	/* INPUT:  pruned length of Subject's pointer list */
 	  int gallery_ptrlist_len	/* INPUT:  pruned length of On-File Record's pointer list */
   )
 {
@@ -380,19 +381,22 @@ bz_match (int probe_ptrlist_len,	/* INPUT:  pruned length of Subject's pointer l
   int b;			/* ThetaKJ state variable, and bottom of search range */
   int t;			/* Top of search range */
 
-  register int *rotptr;
+  int *rotptr;
 
 
 #define ROT_SIZE_1 20000
 #define ROT_SIZE_2 5
 
-  static int rot[ROT_SIZE_1][ROT_SIZE_2];
+  int (*rot)[ROT_SIZE_2];
+  int ind;
+  rot = malloc (ROT_SIZE_2 * ROT_SIZE_1 * sizeof (int));
+  if (rot == NULL)
+    {
+      fprintf (stderr, "out of memory\n");
+      return -1;
+    }
 
-
-  static int *rtp[ROT_SIZE_1];
-
-
-
+  int *rtp[ROT_SIZE_1];
 
 /* These now externally defined in bozorth.h */
 /* extern int * scolpt[ SCOLPT_SIZE ];			 INPUT */
@@ -404,10 +408,6 @@ bz_match (int probe_ptrlist_len,	/* INPUT:  pruned length of Subject's pointer l
 /* extern char * get_probe_filename( void ); */
 /* extern char * get_gallery_filename( void ); */
 
-
-
-
-
   st = 1;
   edge_pair_index = 0;
   rotptr = &rot[0][0];
@@ -416,22 +416,16 @@ bz_match (int probe_ptrlist_len,	/* INPUT:  pruned length of Subject's pointer l
 
   for (k = 1; k < probe_ptrlist_len; k++)
     {
-      ss = scolpt[k - 1];
+      ss = pbz_data->scolpt[k - 1];
 
       /* Foreach sorted edge in On-File Record's Web ... */
 
       for (j = st; j <= gallery_ptrlist_len; j++)
 	{
-	  ff = fcolpt[j - 1];
+	  ff = pbz_data->fcolpt[j - 1];
 	  dz = *ff - *ss;
 
 	  fi = (2.0F * TK) * (*ff + *ss);
-
-
-
-
-
-
 
 
 	  if (SQUARED (dz) > SQUARED (fi))
@@ -458,20 +452,12 @@ bz_match (int probe_ptrlist_len,	/* INPUT:  pruned length of Subject's pointer l
 	      dz = *(ss + i) - *(ff + i);
 	      dz_squared = SQUARED (dz);
 
-
-
-
 	      if (dz_squared > TXS && dz_squared < CTXS)
 		break;
 	    }
 
 	  if (i < 3)
 	    continue;
-
-
-
-
-
 
 	  if (*(ss + 5) >= 220)
 	    {
@@ -499,29 +485,6 @@ bz_match (int probe_ptrlist_len,	/* INPUT:  pruned length of Subject's pointer l
 	  p1 -= p2;
 	  p1 = IANGLE180 (p1);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 	  if (n != b)
 	    {
 
@@ -542,11 +505,6 @@ bz_match (int probe_ptrlist_len,	/* INPUT:  pruned length of Subject's pointer l
 	      *rotptr++ = *(ff + 4);
 	    }
 
-
-
-
-
-
 	  n = -1;
 	  l = 1;
 	  b = 0;
@@ -557,7 +515,7 @@ bz_match (int probe_ptrlist_len,	/* INPUT:  pruned length of Subject's pointer l
 
 	      for (i = 0; i < 3; i++)
 		{
-		  static int ii_table[] = { 1, 3, 2 };
+		  int ii_table[] = { 1, 3, 2 };
 
 		  /*      1 = Subject's Kth, */
 		  /*      3 = On-File's Jth or Kth (depending), */
@@ -615,7 +573,7 @@ bz_match (int probe_ptrlist_len,	/* INPUT:  pruned length of Subject's pointer l
 
 END:
   {
-    int *colp_ptr = &colp[0][0];
+    int *colp_ptr = &pbz_data->colp[0][0];
 
     for (i = 0; i < edge_pair_index; i++)
       {
@@ -626,6 +584,7 @@ END:
   }
 
 
+  free (rot);
 
   return edge_pair_index;	/* Return the number of compatible edge pairs stored into colp[][] */
 }
@@ -634,19 +593,42 @@ END:
 /* These global arrays are declared "static" as they are only used        */
 /* between bz_match_score() & bz_final_loop()                             */
 /**************************************************************************/
-static int ct[CT_SIZE];
-static int gct[GCT_SIZE];
-static int ctt[CTT_SIZE];
-static int ctp[CTP_SIZE_1][CTP_SIZE_2];
-static int yy[YY_SIZE_1][YY_SIZE_2][YY_SIZE_3];
 
-static int bz_final_loop (int);
+static int bz_final_loop (struct bz_data_struct *, int, int[CT_SIZE],
+			  int[GCT_SIZE], int[CTT_SIZE], int **, int ***);
 
 /**************************************************************************/
 int
-bz_match_score (int np,
+bz_match_score (struct bz_data_struct *pbz_data, int np,
 		struct xyt_struct *pstruct, struct xyt_struct *gstruct)
 {
+  int ct[CT_SIZE];
+  int gct[GCT_SIZE];
+  int *ctt;
+  ctt = malloc (sizeof (int) * CTT_SIZE);
+  int **ctp;
+  ctp = malloc (sizeof (int *) * CTP_SIZE_1);
+  int ind;
+  for (ind = 0; ind < CTP_SIZE_1; ind++)
+    {
+      ctp[ind] = malloc (sizeof (int) * CTP_SIZE_2);
+    }
+  int ***yy;
+  yy = malloc (sizeof (int **) * YY_SIZE_1);
+  for (ind = 0; ind < YY_SIZE_1; ind++)
+    {
+      yy[ind] = malloc (sizeof (int *) * YY_SIZE_2);
+      int ind2;
+      for (ind2 = 0; ind2 < YY_SIZE_2; ind2++)
+	{
+	  yy[ind][ind2] = malloc (sizeof (int) * YY_SIZE_3);
+	  int ind3;
+	  for (ind3 = 0; ind3 < YY_SIZE_3; ind3++)
+	    {
+	      yy[ind][ind2][ind3] = 0;
+	    }
+	}
+    }
   int kx, kq;
   int ftt;
   int tot;
@@ -695,8 +677,9 @@ bz_match_score (int np,
 	  if (verbose_bozorth)
 	    fprintf (errorfp,
 		     "%s: bz_match_score(): probe file has too few minutiae (%d) to compute a real Bozorth match score; min. is %d [p=%s; g=%s]\n",
-		     get_progname (), pstruct->nrows, min_computable_minutiae,
-		     get_probe_filename (), get_gallery_filename ());
+		     get_progname (), pstruct->nrows,
+		     min_computable_minutiae, get_probe_filename (),
+		     get_gallery_filename ());
 	}
 #endif
       return ZERO_MATCH_SCORE;
@@ -725,16 +708,16 @@ bz_match_score (int np,
 
 
   /* initialize tables to 0's */
-  INT_SET ((int *) &yl, YL_SIZE_1 * YL_SIZE_2, 0);
+  INT_SET ((int *) &(pbz_data->yl), YL_SIZE_1 * YL_SIZE_2, 0);
 
 
 
-  INT_SET ((int *) &sc, SC_SIZE, 0);
-  INT_SET ((int *) &cp, CP_SIZE, 0);
-  INT_SET ((int *) &rp, RP_SIZE, 0);
-  INT_SET ((int *) &tq, TQ_SIZE, 0);
-  INT_SET ((int *) &rq, RQ_SIZE, 0);
-  INT_SET ((int *) &zz, ZZ_SIZE, 1000);	/* zz[] initialized to 1000's */
+  INT_SET ((int *) &(pbz_data->sc), SC_SIZE, 0);
+  INT_SET ((int *) &(pbz_data->cp), CP_SIZE, 0);
+  INT_SET ((int *) &(pbz_data->rp), RP_SIZE, 0);
+  INT_SET ((int *) &(pbz_data->tq), TQ_SIZE, 0);
+  INT_SET ((int *) &(pbz_data->rq), RQ_SIZE, 0);
+  INT_SET ((int *) &(pbz_data->zz), ZZ_SIZE, 1000);	/* zz[] initialized to 1000's */
 
   INT_SET ((int *) &avn, AVN_SIZE, 0);	/* avn[0...4] <== 0; */
 
@@ -753,19 +736,19 @@ bz_match_score (int np,
     {
       /* printf( "compute(): looping with k=%d\n", k ); */
 
-      if (sc[k])		/* If SC counter for current pair already incremented ... */
+      if (pbz_data->sc[k])	/* If SC counter for current pair already incremented ... */
 	continue;		/*              Skip to next pair */
 
 
-      i = colp[k][1];
-      t = colp[k][3];
+      i = pbz_data->colp[k][1];
+      t = pbz_data->colp[k][3];
 
 
 
 
-      qq[0] = i;
-      rq[t - 1] = i;
-      tq[i - 1] = t;
+      pbz_data->qq[0] = i;
+      pbz_data->rq[t - 1] = i;
+      pbz_data->tq[i - 1] = t;
 
 
       ww = 0;
@@ -792,10 +775,11 @@ bz_match_score (int np,
 
 
 
-	      kz = colp[kx][2];
-	      l = colp[kx][4];
+	      kz = pbz_data->colp[kx][2];
+	      l = pbz_data->colp[kx][4];
 	      kx++;
-	      bz_sift (&ww, kz, &qh, l, kx, ftt, &tot, &qq_overflow);
+	      bz_sift (pbz_data, &ww, kz, &qh, l, kx, ftt, &tot,
+		       &qq_overflow);
 	      if (qq_overflow)
 		{
 		  fprintf (errorfp,
@@ -807,12 +791,14 @@ bz_match_score (int np,
 
 #ifndef NOVERBOSE
 	      if (verbose_bozorth)
-		printf ("x1 %d %d %d %d %d %d\n", kx, colp[kx][0],
-			colp[kx][1], colp[kx][2], colp[kx][3], colp[kx][4]);
+		printf ("x1 %d %d %d %d %d %d\n", kx, pbz_data->colp[kx][0],
+			pbz_data->colp[kx][1], pbz_data->colp[kx][2],
+			pbz_data->colp[kx][3], pbz_data->colp[kx][4]);
 #endif
 
 	    }
-	  while (colp[kx][3] == colp[k][3] && colp[kx][1] == colp[k][1]);
+	  while (pbz_data->colp[kx][3] == pbz_data->colp[k][3]
+		 && pbz_data->colp[kx][1] == pbz_data->colp[k][1]);
 	  /* While the startpoints of lookahead edge pairs are the same as the starting points of the */
 	  /* current pair, set KQ to lookahead edge pair index where above bz_sift() loop left off */
 
@@ -836,11 +822,11 @@ bz_match_score (int np,
 				       get_gallery_filename ());
 			      return QQ_OVERFLOW_SCORE;
 			    }
-			  p1 = qq[j];
+			  p1 = pbz_data->qq[j];
 			}
 		      else
 			{
-			  p1 = tq[p1 - 1];
+			  p1 = pbz_data->tq[p1 - 1];
 
 			}
 
@@ -849,28 +835,30 @@ bz_match_score (int np,
 
 
 
-		      if (colp[i][2 * z] != p1)
+		      if (pbz_data->colp[i][2 * z] != p1)
 			break;
 		    }
 
 
 		  if (z == 3)
 		    {
-		      z = colp[i][1];
-		      l = colp[i][3];
+		      z = pbz_data->colp[i][1];
+		      l = pbz_data->colp[i][3];
 
 
 
-		      if (z != colp[k][1] && l != colp[k][3])
+		      if (z != pbz_data->colp[k][1]
+			  && l != pbz_data->colp[k][3])
 			{
 			  kx = i + 1;
-			  bz_sift (&ww, z, &qh, l, kx, ftt, &tot,
+			  bz_sift (pbz_data, &ww, z, &qh, l, kx, ftt, &tot,
 				   &qq_overflow);
 			  if (qq_overflow)
 			    {
 			      fprintf (errorfp,
 				       "%s: WARNING: bz_match_score(): qq[] overflow from bz_sift() #2 [p=%s; g=%s]\n",
-				       get_progname (), get_probe_filename (),
+				       get_progname (),
+				       get_probe_filename (),
 				       get_gallery_filename ());
 			      return QQ_OVERFLOW_SCORE;
 			    }
@@ -908,16 +896,16 @@ bz_match_score (int np,
 				       get_gallery_filename ());
 			      return QQ_OVERFLOW_SCORE;
 			    }
-			  p1 = qq[j];
+			  p1 = pbz_data->qq[j];
 			}
 		      else
 			{
-			  p1 = tq[p1 - 1];
+			  p1 = pbz_data->tq[p1 - 1];
 			}
 
 
 
-		      p2 = colp[l - 1][i * 2 - 1];
+		      p2 = pbz_data->colp[l - 1][i * 2 - 1];
 
 		      n = SENSE (p1, p2);
 
@@ -942,8 +930,9 @@ bz_match_score (int np,
 
 
 		      /* Locates the head of consecutive sequence of edge pairs all having the same starting Subject and On-File edgepoints */
-		      while (colp[l - 2][3] == p2
-			     && colp[l - 2][1] == colp[l - 1][1])
+		      while (pbz_data->colp[l - 2][3] == p2
+			     && pbz_data->colp[l - 2][1] ==
+			     pbz_data->colp[l - 1][1])
 			l--;
 
 		      kx = l - 1;
@@ -951,22 +940,24 @@ bz_match_score (int np,
 
 		      do
 			{
-			  kz = colp[kx][2];
-			  l = colp[kx][4];
+			  kz = pbz_data->colp[kx][2];
+			  l = pbz_data->colp[kx][4];
 			  kx++;
-			  bz_sift (&ww, kz, &qh, l, kx, ftt, &tot,
+			  bz_sift (pbz_data, &ww, kz, &qh, l, kx, ftt, &tot,
 				   &qq_overflow);
 			  if (qq_overflow)
 			    {
 			      fprintf (errorfp,
 				       "%s: WARNING: bz_match_score(): qq[] overflow from bz_sift() #3 [p=%s; g=%s]\n",
-				       get_progname (), get_probe_filename (),
+				       get_progname (),
+				       get_probe_filename (),
 				       get_gallery_filename ());
 			      return QQ_OVERFLOW_SCORE;
 			    }
 			}
-		      while (colp[kx][3] == p2
-			     && colp[kx][1] == colp[kx - 1][1]);
+		      while (pbz_data->colp[kx][3] == p2
+			     && pbz_data->colp[kx][1] ==
+			     pbz_data->colp[kx - 1][1]);
 
 		      break;
 		    }		/* END if ( n == 0 ) */
@@ -989,7 +980,7 @@ bz_match_score (int np,
 		{
 
 
-		  int colp_value = colp[y[i] - 1][0];
+		  int colp_value = pbz_data->colp[pbz_data->y[i] - 1][0];
 		  if (colp_value < 0)
 		    {
 		      kk += colp_value;
@@ -1036,7 +1027,7 @@ bz_match_score (int np,
 	      kk = 0;
 	      for (i = 0; i < tot; i++)
 		{
-		  int diff = colp[y[i] - 1][0] - jj;
+		  int diff = pbz_data->colp[pbz_data->y[i] - 1][0] - jj;
 		  j = SQUARED (diff);
 
 
@@ -1045,7 +1036,7 @@ bz_match_score (int np,
 		  if (j > TXS && j < CTXS)
 		    kk++;
 		  else
-		    y[i - kk] = y[i];
+		    pbz_data->y[i - kk] = pbz_data->y[i];
 		}		/* END FOR i */
 
 	      tot -= kk;	/* Adjust the total edge pairs TOT based on # of edge pairs skipped */
@@ -1063,14 +1054,14 @@ bz_match_score (int np,
 
 	      for (i = tot - 1; i >= 0; i--)
 		{
-		  int idx = y[i] - 1;
-		  if (rk[idx] == 0)
+		  int idx = pbz_data->y[i] - 1;
+		  if (pbz_data->rk[idx] == 0)
 		    {
-		      sc[idx] = -1;
+		      pbz_data->sc[idx] = -1;
 		    }
 		  else
 		    {
-		      sc[idx] = rk[idx];
+		      pbz_data->sc[idx] = pbz_data->rk[idx];
 		    }
 		}
 	      ftt--;
@@ -1087,7 +1078,7 @@ bz_match_score (int np,
 
 	      for (i = 0; i < tot; i++)
 		{
-		  int idx = y[i] - 1;
+		  int idx = pbz_data->y[i] - 1;
 		  for (ii = 1; ii < 4; ii++)
 		    {
 
@@ -1099,19 +1090,19 @@ bz_match_score (int np,
 
 
 
-		      jj = colp[idx][kk];
+		      jj = pbz_data->colp[idx][kk];
 
 		      switch (ii)
 			{
 			case 1:
-			  if (colp[idx][0] < 0)
+			  if (pbz_data->colp[idx][0] < 0)
 			    {
-			      pd += colp[idx][0];
+			      pd += pbz_data->colp[idx][0];
 			      pb++;
 			    }
 			  else
 			    {
-			      pa += colp[idx][0];
+			      pa += pbz_data->colp[idx][0];
 			      pc++;
 			    }
 			  break;
@@ -1134,20 +1125,11 @@ bz_match_score (int np,
 		      for (jj = 1; jj < 3; jj++)
 			{
 
-
-
-
-
-
-
-
-
-
-			  p1 = colp[idx][2 * ii + jj];
+			  p1 = pbz_data->colp[idx][2 * ii + jj];
 
 
 			  b = 0;
-			  t = yl[ii][tp] + 1;
+			  t = pbz_data->yl[ii][tp] + 1;
 
 			  while (t - b > 1)
 			    {
@@ -1177,12 +1159,12 @@ bz_match_score (int np,
 			      if (n == 1)
 				++l;
 
-			      for (kk = yl[ii][tp]; kk >= l; --kk)
+			      for (kk = pbz_data->yl[ii][tp]; kk >= l; --kk)
 				{
 				  yy[kk][ii][tp] = yy[kk - 1][ii][tp];
 				}
 
-			      ++yl[ii][tp];
+			      ++pbz_data->yl[ii][tp];
 			      yy[l - 1][ii][tp] = p1;
 
 
@@ -1470,7 +1452,7 @@ bz_match_score (int np,
 		      do
 			{
 			  while (yy[jj][kk][ii] < yy[ll][kk][tp]
-				 && jj < yl[kk][ii])
+				 && jj < pbz_data->yl[kk][ii])
 			    {
 
 			      jj++;
@@ -1480,7 +1462,7 @@ bz_match_score (int np,
 
 
 			  while (yy[jj][kk][ii] > yy[ll][kk][tp]
-				 && ll < yl[kk][tp])
+				 && ll < pbz_data->yl[kk][tp])
 			    {
 
 			      ll++;
@@ -1490,7 +1472,8 @@ bz_match_score (int np,
 
 
 			  if (yy[jj][kk][ii] == yy[ll][kk][tp]
-			      && jj < yl[kk][ii] && ll < yl[kk][tp])
+			      && jj < pbz_data->yl[kk][ii]
+			      && ll < pbz_data->yl[kk][tp])
 			    {
 			      found = 1;
 			      break;
@@ -1498,7 +1481,8 @@ bz_match_score (int np,
 
 
 			}
-		      while (jj < yl[kk][ii] && ll < yl[kk][tp]);
+		      while (jj < pbz_data->yl[kk][ii]
+			     && ll < pbz_data->yl[kk][tp]);
 		      if (found)
 			break;
 		    }		/* END for kk */
@@ -1531,22 +1515,22 @@ bz_match_score (int np,
 	    }
 	  for (i = qh - 1; i > 0; i--)
 	    {
-	      n = qq[i] - 1;
-	      if ((tq[n] - 1) >= 0)
+	      n = pbz_data->qq[i] - 1;
+	      if ((pbz_data->tq[n] - 1) >= 0)
 		{
-		  rq[tq[n] - 1] = 0;
-		  tq[n] = 0;
-		  zz[n] = 1000;
+		  pbz_data->rq[pbz_data->tq[n] - 1] = 0;
+		  pbz_data->tq[n] = 0;
+		  pbz_data->zz[n] = 1000;
 		}
 	    }
 
 	  for (i = dw - 1; i >= 0; i--)
 	    {
 	      n = rr[i] - 1;
-	      if (tq[n])
+	      if (pbz_data->tq[n])
 		{
-		  rq[tq[n] - 1] = 0;
-		  tq[n] = 0;
+		  pbz_data->rq[pbz_data->tq[n] - 1] = 0;
+		  pbz_data->tq[n] = 0;
 		}
 	    }
 
@@ -1554,43 +1538,47 @@ bz_match_score (int np,
 	  j = ww - 1;
 	  while (i >= 0 && j >= 0)
 	    {
-	      if (nn[j] < mm[j])
+	      if (pbz_data->nn[j] < pbz_data->mm[j])
 		{
-		  ++nn[j];
+		  ++pbz_data->nn[j];
 
 		  for (i = ww - 1; i >= 0; i--)
 		    {
-		      int rt = rx[i];
+		      int rt = pbz_data->rx[i];
 		      if (rt < 0)
 			{
 			  rt = -rt;
 			  rt--;
-			  z = rf[i][nn[i] - 1] - 1;
+			  z = pbz_data->rf[i][pbz_data->nn[i] - 1] - 1;
 
 
 
-			  if ((tq[z] != (rt + 1) && tq[z])
-			      || (rq[rt] != (z + 1) && rq[rt]))
+			  if ((pbz_data->tq[z] != (rt + 1)
+			       && pbz_data->tq[z])
+			      || (pbz_data->rq[rt] != (z + 1)
+				  && pbz_data->rq[rt]))
 			    break;
 
 
-			  tq[z] = rt + 1;
-			  rq[rt] = z + 1;
+			  pbz_data->tq[z] = rt + 1;
+			  pbz_data->rq[rt] = z + 1;
 			  rr[i] = z + 1;
 			}
 		      else
 			{
 			  rt--;
-			  z = cf[i][nn[i] - 1] - 1;
+			  z = pbz_data->cf[i][pbz_data->nn[i] - 1] - 1;
 
 
-			  if ((tq[rt] != (z + 1) && tq[rt])
-			      || (rq[z] != (rt + 1) && rq[z]))
+			  if ((pbz_data->tq[rt] != (z + 1)
+			       && pbz_data->tq[rt])
+			      || (pbz_data->rq[z] != (rt + 1)
+				  && pbz_data->rq[z]))
 			    break;
 
 
-			  tq[rt] = z + 1;
-			  rq[z] = rt + 1;
+			  pbz_data->tq[rt] = z + 1;
+			  pbz_data->rq[z] = rt + 1;
 			  rr[i] = rt + 1;
 			}
 		    }		/* END for i */
@@ -1600,10 +1588,10 @@ bz_match_score (int np,
 		      for (z = i + 1; z < ww; z++)
 			{
 			  n = rr[z] - 1;
-			  if (tq[n] - 1 >= 0)
+			  if (pbz_data->tq[n] - 1 >= 0)
 			    {
-			      rq[tq[n] - 1] = 0;
-			      tq[n] = 0;
+			      pbz_data->rq[pbz_data->tq[n] - 1] = 0;
+			      pbz_data->tq[n] = 0;
 			    }
 			}
 		      j = ww - 1;
@@ -1612,7 +1600,7 @@ bz_match_score (int np,
 		}
 	      else
 		{
-		  nn[j] = 1;
+		  pbz_data->nn[j] = 1;
 		  j--;
 		}
 
@@ -1634,24 +1622,24 @@ bz_match_score (int np,
 
 
 
-      n = qq[0] - 1;
-      if (tq[n] - 1 >= 0)
+      n = pbz_data->qq[0] - 1;
+      if (pbz_data->tq[n] - 1 >= 0)
 	{
-	  rq[tq[n] - 1] = 0;
-	  tq[n] = 0;
+	  pbz_data->rq[pbz_data->tq[n] - 1] = 0;
+	  pbz_data->tq[n] = 0;
 	}
 
       for (i = ww - 1; i >= 0; i--)
 	{
-	  n = rx[i];
+	  n = pbz_data->rx[i];
 	  if (n < 0)
 	    {
 	      n = -n;
-	      rp[n - 1] = 0;
+	      pbz_data->rp[n - 1] = 0;
 	    }
 	  else
 	    {
-	      cp[n - 1] = 0;
+	      pbz_data->cp[n - 1] = 0;
 	    }
 
 	}
@@ -1662,10 +1650,29 @@ bz_match_score (int np,
 
   if (match_score < MMSTR)
     {
-      return match_score;
+      //return match_score;
     }
 
-  match_score = bz_final_loop (tp);
+  else
+    {
+      match_score = bz_final_loop (pbz_data, tp, ct, gct, ctt, ctp, yy);
+    }
+  free (ctt);
+  for (ind = 0; ind < CTP_SIZE_1; ind++)
+    {
+      free (ctp[ind]);
+    }
+  free (ctp);
+  for (ind = 0; ind < YY_SIZE_1; ind++)
+    {
+      int ind2;
+      for (ind2 = 0; ind2 < YY_SIZE_2; ind2++)
+	{
+	  free (yy[ind][ind2]);
+	}
+      free (yy[ind]);
+    }
+  free (yy);
   return match_score;
 }
 
@@ -1688,7 +1695,7 @@ bz_match_score (int np,
 /* extern int rp[ RP_SIZE ]; */
 /* extern int y[ Y_SIZE ]; */
 
-void bz_sift (int *ww,		/* INPUT and OUTPUT; endpoint groups index; *ww may be bumped by one or by two */
+void bz_sift (struct bz_data_struct *pbz_data, int *ww,	/* INPUT and OUTPUT; endpoint groups index; *ww may be bumped by one or by two */
 	      int kz,		/* INPUT only;       endpoint of lookahead Subject edge */
 	      int *qh,		/* INPUT and OUTPUT; the value is an index into qq[] and is stored in zz[]; *qh may be bumped by one */
 	      int l,		/* INPUT only;       endpoint of lookahead On-File edge */
@@ -1709,18 +1716,18 @@ void bz_sift (int *ww,		/* INPUT and OUTPUT; endpoint groups index; *ww may be b
 
 
 
-  n = tq[kz - 1];		/* Lookup On-File edgepoint stored in TQ at index of endpoint of lookahead Subject edge */
-  t = rq[l - 1];		/* Lookup Subject edgepoint stored in RQ at index of endpoint of lookahead On-File edge */
+  n = pbz_data->tq[kz - 1];	/* Lookup On-File edgepoint stored in TQ at index of endpoint of lookahead Subject edge */
+  t = pbz_data->rq[l - 1];	/* Lookup Subject edgepoint stored in RQ at index of endpoint of lookahead On-File edge */
 
   if (n == 0 && t == 0)
     {
 
 
-      if (sc[kx - 1] != ftt)
+      if (pbz_data->sc[kx - 1] != ftt)
 	{
-	  y[(*tot)++] = kx;
-	  rk[kx - 1] = sc[kx - 1];
-	  sc[kx - 1] = ftt;
+	  pbz_data->y[(*tot)++] = kx;
+	  pbz_data->rk[kx - 1] = pbz_data->sc[kx - 1];
+	  pbz_data->sc[kx - 1] = ftt;
 	}
 
       if (*qh >= QQ_SIZE)
@@ -1732,13 +1739,13 @@ void bz_sift (int *ww,		/* INPUT and OUTPUT; endpoint groups index; *ww may be b
 	  *qq_overflow = 1;
 	  return;
 	}
-      qq[*qh] = kz;
-      zz[kz - 1] = (*qh)++;
+      pbz_data->qq[*qh] = kz;
+      pbz_data->zz[kz - 1] = (*qh)++;
 
 
       /* The TQ and RQ locations are set, so set them ... */
-      tq[kz - 1] = l;
-      rq[l - 1] = kz;
+      pbz_data->tq[kz - 1] = l;
+      pbz_data->rq[l - 1] = kz;
 
       return;
     }				/* END if ( n == 0 && t == 0 ) */
@@ -1754,9 +1761,9 @@ void bz_sift (int *ww,		/* INPUT and OUTPUT; endpoint groups index; *ww may be b
   if (n == l)
     {
 
-      if (sc[kx - 1] != ftt)
+      if (pbz_data->sc[kx - 1] != ftt)
 	{
-	  if (zz[kx - 1] == 1000)
+	  if (pbz_data->zz[kx - 1] == 1000)
 	    {
 	      if (*qh >= QQ_SIZE)
 		{
@@ -1767,12 +1774,12 @@ void bz_sift (int *ww,		/* INPUT and OUTPUT; endpoint groups index; *ww may be b
 		  *qq_overflow = 1;
 		  return;
 		}
-	      qq[*qh] = kz;
-	      zz[kz - 1] = (*qh)++;
+	      pbz_data->qq[*qh] = kz;
+	      pbz_data->zz[kz - 1] = (*qh)++;
 	    }
-	  y[(*tot)++] = kx;
-	  rk[kx - 1] = sc[kx - 1];
-	  sc[kx - 1] = ftt;
+	  pbz_data->y[(*tot)++] = kx;
+	  pbz_data->rk[kx - 1] = pbz_data->sc[kx - 1];
+	  pbz_data->sc[kx - 1] = ftt;
 	}
 
       return;
@@ -1798,16 +1805,16 @@ void bz_sift (int *ww,		/* INPUT and OUTPUT; endpoint groups index; *ww may be b
 
     if (n)
       {
-	b = cp[kz - 1];
+	b = pbz_data->cp[kz - 1];
 	if (b == 0)
 	  {
 	    b = ++*ww;
 	    b_index = b - 1;
-	    cp[kz - 1] = b;
-	    cf[b_index][0] = n;
-	    mm[b_index] = 1;
-	    nn[b_index] = 1;
-	    rx[b_index] = kz;
+	    pbz_data->cp[kz - 1] = b;
+	    pbz_data->cf[b_index][0] = n;
+	    pbz_data->mm[b_index] = 1;
+	    pbz_data->nn[b_index] = 1;
+	    pbz_data->rx[b_index] = kz;
 
 	  }
 	else
@@ -1815,8 +1822,8 @@ void bz_sift (int *ww,		/* INPUT and OUTPUT; endpoint groups index; *ww may be b
 	    b_index = b - 1;
 	  }
 
-	lim = mm[b_index];
-	lptr = &cf[b_index][0];
+	lim = pbz_data->mm[b_index];
+	lptr = &pbz_data->cf[b_index][0];
 	notfound = 1;
 
 #ifndef NOVERBOSE
@@ -1842,8 +1849,8 @@ void bz_sift (int *ww,		/* INPUT and OUTPUT; endpoint groups index; *ww may be b
 	  }
 	if (notfound)
 	  {			/* If lookahead On-File endpoint not in list ... */
-	    cf[b_index][i] = l;
-	    ++mm[b_index];
+	    pbz_data->cf[b_index][i] = l;
+	    ++pbz_data->mm[b_index];
 	  }
       }				/* END if ( n ) */
 
@@ -1852,16 +1859,16 @@ void bz_sift (int *ww,		/* INPUT and OUTPUT; endpoint groups index; *ww may be b
 
     if (t)
       {
-	b = rp[l - 1];
+	b = pbz_data->rp[l - 1];
 	if (b == 0)
 	  {
 	    b = ++*ww;
 	    b_index = b - 1;
-	    rp[l - 1] = b;
-	    rf[b_index][0] = t;
-	    mm[b_index] = 1;
-	    nn[b_index] = 1;
-	    rx[b_index] = -l;
+	    pbz_data->rp[l - 1] = b;
+	    pbz_data->rf[b_index][0] = t;
+	    pbz_data->mm[b_index] = 1;
+	    pbz_data->nn[b_index] = 1;
+	    pbz_data->rx[b_index] = -l;
 
 
 	  }
@@ -1870,8 +1877,8 @@ void bz_sift (int *ww,		/* INPUT and OUTPUT; endpoint groups index; *ww may be b
 	    b_index = b - 1;
 	  }
 
-	lim = mm[b_index];
-	lptr = &rf[b_index][0];
+	lim = pbz_data->mm[b_index];
+	lptr = &pbz_data->rf[b_index][0];
 	notfound = 1;
 
 #ifndef NOVERBOSE
@@ -1897,8 +1904,8 @@ void bz_sift (int *ww,		/* INPUT and OUTPUT; endpoint groups index; *ww may be b
 	  }
 	if (notfound)
 	  {			/* If lookahead Subject endpoint not in list ... */
-	    rf[b_index][i] = kz;
-	    ++mm[b_index];
+	    pbz_data->rf[b_index][i] = kz;
+	    ++pbz_data->mm[b_index];
 	  }
       }				/* END if ( t ) */
 
@@ -1909,7 +1916,8 @@ void bz_sift (int *ww,		/* INPUT and OUTPUT; endpoint groups index; *ww may be b
 /**************************************************************************/
 
 static int
-bz_final_loop (int tp)
+bz_final_loop (struct bz_data_struct *pbz_data, int tp, int ct[CT_SIZE],
+	       int gct[GCT_SIZE], int ctt[CTT_SIZE], int **ctp, int ***yy)
 {
   int ii, i, t, b, n, k, j, kk, jj;
   int lim;
@@ -1919,7 +1927,18 @@ bz_final_loop (int tp)
 /* locally because it is only used herein.  The use of   */
 /* "static" is required as the array will exceed the     */
 /* stack allocation on our local systems otherwise.      */
-  static int sct[SCT_SIZE_1][SCT_SIZE_2];
+  int **sct;
+  sct = malloc (sizeof (int *) * SCT_SIZE_1);
+  int ind;
+  for (ind = 0; ind < SCT_SIZE_1; ind++)
+    {
+      sct[ind] = malloc (sizeof (int) * SCT_SIZE_2);
+      int ind2;
+      for (ind2 = 0; ind2 < SCT_SIZE_2; ind2++)
+	{
+	  sct[ind][ind2] = 0;
+	}
+    }
 
   match_score = 0;
   for (ii = 0; ii < tp; ii++)
@@ -1935,31 +1954,32 @@ bz_final_loop (int tp)
 	}
 
       t = 0;
-      y[0] = lim;
-      cp[0] = 1;
+      pbz_data->y[0] = lim;
+      pbz_data->cp[0] = 1;
       b = 0;
       n = 1;
       do
 	{			/* looping until T < 0 ... */
-	  if (y[t] - cp[t] > 1)
+	  if (pbz_data->y[t] - pbz_data->cp[t] > 1)
 	    {
-	      k = sct[cp[t]][t];
+	      k = sct[pbz_data->cp[t]][t];
 	      j = ctt[k] + 1;
 	      for (i = 0; i < j; i++)
 		{
-		  rp[i] = ctp[k][i];
+		  pbz_data->rp[i] = ctp[k][i];
 		}
 	      k = 0;
-	      kk = cp[t];
+	      kk = pbz_data->cp[t];
 	      jj = 0;
 
 	      do
 		{
-		  while (rp[jj] < sct[kk][t] && jj < j)
+		  while (pbz_data->rp[jj] < sct[kk][t] && jj < j)
 		    jj++;
-		  while (rp[jj] > sct[kk][t] && kk < y[t])
+		  while (pbz_data->rp[jj] > sct[kk][t] && kk < pbz_data->y[t])
 		    kk++;
-		  while (rp[jj] == sct[kk][t] && kk < y[t] && jj < j)
+		  while (pbz_data->rp[jj] == sct[kk][t]
+			 && kk < pbz_data->y[t] && jj < j)
 		    {
 		      sct[k][t + 1] = sct[kk][t];
 		      k++;
@@ -1967,11 +1987,11 @@ bz_final_loop (int tp)
 		      jj++;
 		    }
 		}
-	      while (kk < y[t] && jj < j);
+	      while (kk < pbz_data->y[t] && jj < j);
 
 	      t++;
-	      cp[t] = 1;
-	      y[t] = k;
+	      pbz_data->cp[t] = 1;
+	      pbz_data->y[t] = k;
 	      b = t;
 	      n = 1;
 	    }
@@ -1979,7 +1999,7 @@ bz_final_loop (int tp)
 	    {
 	      int tot = 0;
 
-	      lim = y[t];
+	      lim = pbz_data->y[t];
 	      for (i = n - 1; i < lim; i++)
 		{
 		  tot += ct[sct[i][t]];
@@ -1995,15 +2015,15 @@ bz_final_loop (int tp)
 		  match_score = tot;	/*      then set match_score to the new total */
 		  for (i = 0; i < b; i++)
 		    {
-		      rk[i] = sct[0][i];
+		      pbz_data->rk[i] = sct[0][i];
 		    }
 
 		  {
 		    int rk_index = b;
-		    lim = y[t];
+		    lim = pbz_data->y[t];
 		    for (i = n - 1; i < lim;)
 		      {
-			rk[rk_index++] = sct[i++][t];
+			pbz_data->rk[rk_index++] = sct[i++][t];
 		      }
 		  }
 		}
@@ -2011,8 +2031,8 @@ bz_final_loop (int tp)
 	      t--;
 	      if (t >= 0)
 		{
-		  ++cp[t];
-		  n = y[t];
+		  ++pbz_data->cp[t];
+		  n = pbz_data->y[t];
 		}
 	    }			/* END IF */
 
@@ -2021,6 +2041,11 @@ bz_final_loop (int tp)
 
     }				/* END FOR ii */
 
+  for (ind = 0; ind < SCT_SIZE_1; ind++)
+    {
+      free (sct[ind]);
+    }
+  free (sct);
   return match_score;
 
 }				/* END bz_final_loop() */
