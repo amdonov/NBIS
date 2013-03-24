@@ -14,7 +14,6 @@ Source0: %{name}-%{version}.tar.gz
 %setup -q
 
 %build
-unzip nbis_v4_1_0.zip
 mkdir -p $RPM_BUILD_DIR/target
 cd Rel_4.1.0
 bash setup.sh $RPM_BUILD_DIR/target --64
