@@ -94,6 +94,7 @@ extern void                print_version( FILE * );
 
 int main( int argc, char ** argv )
 {
+	struct bz_data_struct * bz_data;
 int nerrors = 0;
 int parse_errors = 0;
 int dry_run = 0;
@@ -692,7 +693,9 @@ if ( ! dry_run ) {
 									get_progname(), fixed_probe_file );
 			exit(1);
 		}
-		probe_len = bozorth_probe_init( pstruct );
+		bz_data = malloc (sizeof (struct bz_data_struct));
+		memset (bz_data, 0, sizeof (struct bz_data_struct));
+		probe_len = bozorth_probe_init(bz_data, pstruct );
 	}
 	if ( fixed_gallery_file != CNULL ) {
 		gstruct = bz_load( fixed_gallery_file );
@@ -805,7 +808,8 @@ while (1) {
 	set_gallery_filename( g );
 	if ( ok ) {
 		if ( fixed_probe_file != CNULL ) {
-			n = bozorth_to_gallery( probe_len, pstruct, gstruct );
+			n = bozorth_to_gallery(bz_data,  probe_len, pstruct, gstruct );
+			free(bz_data);
 		} else {
 			n = bozorth_main( pstruct, gstruct );
 		}

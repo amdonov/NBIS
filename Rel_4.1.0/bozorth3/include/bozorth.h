@@ -262,7 +262,7 @@ struct bz_data_struct {
 /* In: BZ_DRVRS.C */
 extern int bozorth_probe_init(struct bz_data_struct*, struct xyt_struct *);
 extern int bozorth_gallery_init(struct bz_data_struct*, struct xyt_struct *);
-extern int bozorth_to_gallery(int, struct xyt_struct *, struct xyt_struct *);
+extern int bozorth_to_gallery(struct bz_data_struct*, int, struct xyt_struct *, struct xyt_struct *);
 extern int bozorth_main(struct xyt_struct *, struct xyt_struct *);
 /* In: BOZORTH3.C */
 extern void bz_comp(int, int [], int [], int [], int *, int [][COLS_SIZE_2],

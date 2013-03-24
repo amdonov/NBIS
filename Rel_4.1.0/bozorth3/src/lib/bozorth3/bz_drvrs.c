@@ -150,19 +150,16 @@ bozorth_gallery_init (struct bz_data_struct *pbz_data,
 /**************************************************************************/
 
 int
-bozorth_to_gallery (int probe_len,
+bozorth_to_gallery (struct bz_data_struct * bz_data, int probe_len,
 		    struct xyt_struct *pstruct, struct xyt_struct *gstruct)
 {
-  struct bz_data_struct *bz_data;
   int np;
   int gallery_len;
   int res;
 
-  bz_data = malloc (sizeof (struct bz_data_struct));
   gallery_len = bozorth_gallery_init (bz_data, gstruct);
   np = bz_match (bz_data, probe_len, gallery_len);
   res = bz_match_score (bz_data, np, pstruct, gstruct);
-  free (bz_data);
   return res;
 }
 
