@@ -1648,12 +1648,7 @@ bz_match_score (struct bz_data_struct *pbz_data, int np,
 
 
 
-  if (match_score < MMSTR)
-    {
-      //return match_score;
-    }
-
-  else
+  if (match_score >= MMSTR)
     {
       match_score = bz_final_loop (pbz_data, tp, ct, gct, ctt, ctp, yy);
     }
