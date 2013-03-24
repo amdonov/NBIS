@@ -1,6 +1,6 @@
 Name: NBIS          
 Version: 4.1.0       
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary: NIST Biometric Image Software       
 
 License: Public Domain        
@@ -58,6 +58,15 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Sun Mar 24 2013 Aaron Donovan <amdonov@gmail.com> 4.1.0-2
+- Heavy refactoring of bozorth code to eliminate global and static varibles.
+  Matching is now thread-safe. No memory leaks on the default execution path,
+  but some resources may still be improperly freed in certain situations.
+  (amdonov@gmail.com)
+- Formatted source files with indent (amdonov@gmail.com)
+- Expanding source because bozorth3 requires extensive patching to make it
+  thread safe (amdonov@gmail.com)
+
 * Mon Mar 18 2013 Aaron Donovan <amdonov@gmail.com> 4.1.0-1
 - new package built with tito
 
