@@ -1,6 +1,6 @@
 Name: NBIS          
 Version: 4.1.0       
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary: NIST Biometric Image Software       
 
 License: Public Domain        
@@ -58,6 +58,12 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Wed Mar 27 2013 Aaron Donovan <amdonov@gmail.com> 4.1.0-5
+- Corrected error with replacement of static variables (amdonov@gmail.com)
+- Updating autocrop to use new wsq API (amdonov@gmail.com)
+- Working to make wsq library thread safe. At this point it doesn't have
+  read/write globals or statics, but it doesn't work. (amdonov@gmail.com)
+
 * Sun Mar 24 2013 Aaron Donovan <amdonov@gmail.com> 4.1.0-4
 - Minor changes to all bozorth3 command line tool to deal with changes to the
   library (amdonov@gmail.com)
