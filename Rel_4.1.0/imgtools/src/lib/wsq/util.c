@@ -1332,7 +1332,7 @@ int image_size(
 /* Added by MDG on 02-24-05                                  */
 /* Initializes memory used by the WSQ decoder.               */
 /*************************************************************/
-void init_wsq_decoder_resources()
+void init_wsq_decoder_resources(struct wsq_data_struct * pwsq_data)
 {
    /* Added 02-24-05 by MDG                      */
    /* Init dymanically allocated members to NULL */
@@ -1340,24 +1340,24 @@ void init_wsq_decoder_resources()
    /*    read_transform_table()                  */
    /*    getc_transform_table()                  */
    /*    free_wsq_resources()                    */
-   dtt_table.lofilt = (float *)NULL;
-   dtt_table.hifilt = (float *)NULL;
+   pwsq_data->dtt_table.lofilt = (float *)NULL;
+   pwsq_data->dtt_table.hifilt = (float *)NULL;
 }
 
 /*************************************************************/
 /* Added by MDG on 02-24-05                                  */
 /* Deallocates memory used by the WSQ decoder.               */
 /*************************************************************/
-void free_wsq_decoder_resources()
+void free_wsq_decoder_resources(struct wsq_data_struct * pwsq_data)
 {
-   if(dtt_table.lofilt != (float *)NULL){
-      free(dtt_table.lofilt);
-      dtt_table.lofilt = (float *)NULL;
+   if(pwsq_data->dtt_table.lofilt != (float *)NULL){
+      free(pwsq_data->dtt_table.lofilt);
+      pwsq_data->dtt_table.lofilt = (float *)NULL;
    }
 
-   if(dtt_table.hifilt != (float *)NULL){
-      free(dtt_table.hifilt);
-      dtt_table.hifilt = (float *)NULL;
+   if(pwsq_data->dtt_table.hifilt != (float *)NULL){
+      free(pwsq_data->dtt_table.hifilt);
+      pwsq_data->dtt_table.hifilt = (float *)NULL;
    }
 }
 

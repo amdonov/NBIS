@@ -92,6 +92,8 @@ of the software.
 int wsq_decode_mem(unsigned char **odata, int *ow, int *oh, int *od, int *oppi,
                    int *lossyflag, unsigned char *idata, const int ilen)
 {
+	struct wsq_data_struct* pwsq_data;
+	pwsq_data = malloc(sizeof(struct wsq_data_struct));
    int ret, i;
    unsigned short marker;         /* WSQ marker */
    int num_pix;                   /* image size and counter */
@@ -103,7 +105,7 @@ int wsq_decode_mem(unsigned char **odata, int *ow, int *oh, int *od, int *oppi,
    unsigned char *ebufptr;        /* points to end of buffer */
 
    /* Added by MDG on 02-24-05 */
-   init_wsq_decoder_resources();
+   init_wsq_decoder_resources(pwsq_data);
 
    /* Set memory buffer pointers. */
    cbufptr = idata;
@@ -111,42 +113,42 @@ int wsq_decode_mem(unsigned char **odata, int *ow, int *oh, int *od, int *oppi,
 
    /* Init DHT Tables to 0. */
    for(i = 0; i < MAX_DHT_TABLES; i++)
-      (dht_table + i)->tabdef = 0;
+      (pwsq_data->dht_table + i)->tabdef = 0;
 
    /* Read the SOI marker. */
    if((ret = getc_marker_wsq(&marker, SOI_WSQ, &cbufptr, ebufptr))){
-      free_wsq_decoder_resources();
+      free_wsq_decoder_resources(pwsq_data);
       return(ret);
    }
 
    /* Read in supporting tables up to the SOF marker. */
    if((ret = getc_marker_wsq(&marker, TBLS_N_SOF, &cbufptr, ebufptr))){
-      free_wsq_decoder_resources();
+      free_wsq_decoder_resources(pwsq_data);
       return(ret);
    }
    while(marker != SOF_WSQ) {
-      if((ret = getc_table_wsq(marker, &dtt_table, &dqt_table, dht_table,
+      if((ret = getc_table_wsq(marker, &(pwsq_data->dtt_table), &(pwsq_data->dqt_table), pwsq_data->dht_table,
                           &cbufptr, ebufptr))){
-         free_wsq_decoder_resources();
+         free_wsq_decoder_resources(pwsq_data);
          return(ret);
       }
       if((ret = getc_marker_wsq(&marker, TBLS_N_SOF, &cbufptr, ebufptr))){
-         free_wsq_decoder_resources();
+         free_wsq_decoder_resources(pwsq_data);
          return(ret);
       }
    }
 
    /* Read in the Frame Header. */
-   if((ret = getc_frame_header_wsq(&frm_header_wsq, &cbufptr, ebufptr))){
-      free_wsq_decoder_resources();
+   if((ret = getc_frame_header_wsq(&(pwsq_data->frm_header_wsq), &cbufptr, ebufptr))){
+      free_wsq_decoder_resources(pwsq_data);
       return(ret);
    }
-   width = frm_header_wsq.width;
-   height = frm_header_wsq.height;
+   width = pwsq_data->frm_header_wsq.width;
+   height = pwsq_data->frm_header_wsq.height;
    num_pix = width * height;
 
    if((ret = getc_ppi_wsq(&ppi, idata, ilen))){
-      free_wsq_decoder_resources();
+      free_wsq_decoder_resources(pwsq_data);
       return(ret);
    }
 
@@ -154,7 +156,7 @@ int wsq_decode_mem(unsigned char **odata, int *ow, int *oh, int *od, int *oppi,
       fprintf(stderr, "SOI, tables, and frame header read\n\n");
 
    /* Build WSQ decomposition trees. */
-   build_wsq_trees(w_tree, W_TREELEN, q_tree, Q_TREELEN, width, height);
+   build_wsq_trees(pwsq_data->w_tree, W_TREELEN, pwsq_data->q_tree, Q_TREELEN, width, height);
 
    if(debug > 0)
       fprintf(stderr, "Tables for wavelet decomposition finished\n\n");
@@ -163,14 +165,14 @@ int wsq_decode_mem(unsigned char **odata, int *ow, int *oh, int *od, int *oppi,
    qdata = (short *) malloc(num_pix * sizeof(short));
    if(qdata == (short *)NULL) {
       fprintf(stderr,"ERROR: wsq_decode_mem : malloc : qdata1\n");
-      free_wsq_decoder_resources();
+      free_wsq_decoder_resources(pwsq_data);
       return(-20);
    }
    /* Decode the Huffman encoded data blocks. */
-   if((ret = huffman_decode_data_mem(qdata, &dtt_table, &dqt_table, dht_table,
+   if((ret = huffman_decode_data_mem(pwsq_data, qdata, &(pwsq_data->dtt_table), &(pwsq_data->dqt_table), pwsq_data->dht_table,
                                     &cbufptr, ebufptr))){
       free(qdata);
-      free_wsq_decoder_resources();
+      free_wsq_decoder_resources(pwsq_data);
       return(ret);
    }
 
@@ -179,10 +181,10 @@ int wsq_decode_mem(unsigned char **odata, int *ow, int *oh, int *od, int *oppi,
          "Quantized WSQ subband data blocks read and Huffman decoded\n\n");
 
    /* Decode the quantize wavelet subband data. */
-   if((ret = unquantize(&fdata, &dqt_table, q_tree, Q_TREELEN,
+   if((ret = unquantize(&fdata, &(pwsq_data->dqt_table), pwsq_data->q_tree, Q_TREELEN,
                          qdata, width, height))){
       free(qdata);
-      free_wsq_decoder_resources();
+      free_wsq_decoder_resources(pwsq_data);
       return(ret);
    }
 
@@ -192,10 +194,10 @@ int wsq_decode_mem(unsigned char **odata, int *ow, int *oh, int *od, int *oppi,
    /* Done with quantized wavelet subband data. */
    free(qdata);
 
-   if((ret = wsq_reconstruct(fdata, width, height, w_tree, W_TREELEN,
-                              &dtt_table))){
+   if((ret = wsq_reconstruct(fdata, width, height, pwsq_data->w_tree, W_TREELEN,
+                              &(pwsq_data->dtt_table)))){
       free(fdata);
-      free_wsq_decoder_resources();
+      free_wsq_decoder_resources(pwsq_data);
       return(ret);
    }
 
@@ -205,20 +207,20 @@ int wsq_decode_mem(unsigned char **odata, int *ow, int *oh, int *od, int *oppi,
    cdata = (unsigned char *)malloc(num_pix * sizeof(unsigned char));
    if(cdata == (unsigned char *)NULL) {
       free(fdata);
-      free_wsq_decoder_resources();
+      free_wsq_decoder_resources(pwsq_data);
       fprintf(stderr,"ERROR: wsq_decode_mem : malloc : cdata\n");
       return(-21);
    }
 
    /* Convert floating point pixels to unsigned char pixels. */
    conv_img_2_uchar(cdata, fdata, width, height,
-                      frm_header_wsq.m_shift, frm_header_wsq.r_scale);
+                      pwsq_data->frm_header_wsq.m_shift, pwsq_data->frm_header_wsq.r_scale);
 
    /* Done with floating point pixels. */
    free(fdata);
 
    /* Added by MDG on 02-24-05 */
-   free_wsq_decoder_resources();
+   free_wsq_decoder_resources(pwsq_data);
 
    if(debug > 0)
       fprintf(stderr, "Doubleing point pixels converted to unsigned char\n\n");
@@ -242,6 +244,7 @@ int wsq_decode_mem(unsigned char **odata, int *ow, int *oh, int *od, int *oppi,
 int wsq_decode_file(unsigned char **odata, int *ow, int *oh, int *od, int *oppi,
                     int *lossyflag, FILE *infp)
 {
+	struct wsq_data_struct* pwsq_data;
    int ret;
    unsigned short marker;         /* WSQ marker */
    int num_pix;                   /* image size and counter */
@@ -251,41 +254,41 @@ int wsq_decode_file(unsigned char **odata, int *ow, int *oh, int *od, int *oppi,
    short *qdata;                  /* image pointers */
 
    /* Added by MDG on 02-24-05 */
-   init_wsq_decoder_resources();
+   init_wsq_decoder_resources(pwsq_data);
 
    /* Read the SOI marker. */
    if((ret = read_marker_wsq(&marker, SOI_WSQ, infp))){
-      free_wsq_decoder_resources();
+      free_wsq_decoder_resources(pwsq_data);
       return(ret);
    }
 
    /* Read in supporting tables up to the SOF marker. */
    if((ret = read_marker_wsq(&marker, TBLS_N_SOF, infp))){
-      free_wsq_decoder_resources();
+      free_wsq_decoder_resources(pwsq_data);
       return(ret);
    }
    while(marker != SOF_WSQ) {
-      if((ret = read_table_wsq(marker, &dtt_table, &dqt_table, dht_table, infp))){
-         free_wsq_decoder_resources();
+      if((ret = read_table_wsq(marker, &(pwsq_data->dtt_table), &(pwsq_data->dqt_table), pwsq_data->dht_table, infp))){
+         free_wsq_decoder_resources(pwsq_data);
          return(ret);
       }
       if((ret = read_marker_wsq(&marker, TBLS_N_SOF, infp))){
-         free_wsq_decoder_resources();
+         free_wsq_decoder_resources(pwsq_data);
          return(ret);
       }
    }
 
    /* Read in the Frame Header. */
-   if((ret = read_frame_header_wsq(&frm_header_wsq, infp))){
-      free_wsq_decoder_resources();
+   if((ret = read_frame_header_wsq(&(pwsq_data->frm_header_wsq), infp))){
+      free_wsq_decoder_resources(pwsq_data);
       return(ret);
    }
-   width = frm_header_wsq.width;
-   height = frm_header_wsq.height;
+   width = pwsq_data->frm_header_wsq.width;
+   height = pwsq_data->frm_header_wsq.height;
    num_pix = width * height;
 
    if((ret = read_ppi_wsq(&ppi, infp))){
-      free_wsq_decoder_resources();
+      free_wsq_decoder_resources(pwsq_data);
       return(ret);
    }
 
@@ -293,7 +296,7 @@ int wsq_decode_file(unsigned char **odata, int *ow, int *oh, int *od, int *oppi,
       fprintf(stderr, "SOI, tables, and frame header read\n\n");
 
    /* Build WSQ decomposition trees. */
-   build_wsq_trees(w_tree, W_TREELEN, q_tree, Q_TREELEN, width, height);
+   build_wsq_trees(pwsq_data->w_tree, W_TREELEN, pwsq_data->q_tree, Q_TREELEN, width, height);
 
    if(debug > 0)
       fprintf(stderr, "Tables for wavelet decomposition finished\n\n");
@@ -301,16 +304,16 @@ int wsq_decode_file(unsigned char **odata, int *ow, int *oh, int *od, int *oppi,
    /* Allocate working memory. */
    qdata = (short *) malloc(num_pix * sizeof(short));
    if(qdata == (short *)NULL) {
-      free_wsq_decoder_resources();
+      free_wsq_decoder_resources(pwsq_data);
       fprintf(stderr,"ERROR: wsq_decode_file : malloc : qdata1\n");
       return(-20);
    }
 
    /* Decode the Huffman encoded data blocks. */
-   if((ret = huffman_decode_data_file(qdata, &dtt_table, &dqt_table, dht_table,
+   if((ret = huffman_decode_data_file(qdata, &(pwsq_data->dtt_table), &(pwsq_data->dqt_table), pwsq_data->dht_table,
                                      infp))){
       free(qdata);
-      free_wsq_decoder_resources();
+      free_wsq_decoder_resources(pwsq_data);
       return(ret);
    }
 
@@ -319,10 +322,10 @@ int wsq_decode_file(unsigned char **odata, int *ow, int *oh, int *od, int *oppi,
          "Quantized WSQ subband data blocks read and Huffman decoded\n\n");
 
    /* Decode the quantize wavelet subband data. */
-   if((ret = unquantize(&fdata, &dqt_table, q_tree, Q_TREELEN,
+   if((ret = unquantize(&fdata, &(pwsq_data->dqt_table), pwsq_data->q_tree, Q_TREELEN,
                          qdata, width, height))){
       free(qdata);
-      free_wsq_decoder_resources();
+      free_wsq_decoder_resources(pwsq_data);
       return(ret);
    }
 
@@ -332,10 +335,10 @@ int wsq_decode_file(unsigned char **odata, int *ow, int *oh, int *od, int *oppi,
    /* Done with quantized wavelet subband data. */
    free(qdata);
 
-   if((ret = wsq_reconstruct(fdata, width, height, w_tree, W_TREELEN,
-                              &dtt_table))){
+   if((ret = wsq_reconstruct(fdata, width, height, pwsq_data->w_tree, W_TREELEN,
+                              &(pwsq_data->dtt_table)))){
       free(fdata);
-      free_wsq_decoder_resources();
+      free_wsq_decoder_resources(pwsq_data);
       return(ret);
    }
 
@@ -345,20 +348,20 @@ int wsq_decode_file(unsigned char **odata, int *ow, int *oh, int *od, int *oppi,
    cdata = (unsigned char *)malloc(num_pix * sizeof(unsigned char));
    if(cdata == (unsigned char *)NULL) {
       free(fdata);
-      free_wsq_decoder_resources();
+      free_wsq_decoder_resources(pwsq_data);
       fprintf(stderr,"ERROR: wsq_decode_file : malloc : cdata\n");
       return(-21);
    }
 
    /* Convert floating point pixels to unsigned char pixels. */
    conv_img_2_uchar(cdata, fdata, width, height,
-                      frm_header_wsq.m_shift, frm_header_wsq.r_scale);
+                      pwsq_data->frm_header_wsq.m_shift, pwsq_data->frm_header_wsq.r_scale);
 
    /* Done with floating point pixels. */
    free(fdata);
 
    /* Added by MDG on 02-24-05 */
-   free_wsq_decoder_resources();
+   free_wsq_decoder_resources(pwsq_data);
 
    if(debug > 0)
       fprintf(stderr, "Doubleing point pixels converted to unsigned char\n\n");
@@ -380,6 +383,7 @@ int wsq_decode_file(unsigned char **odata, int *ow, int *oh, int *od, int *oppi,
 /* Routine to decode an entire "block" of encoded data from memory buffer. */
 /***************************************************************************/
 int huffman_decode_data_mem(
+		struct wsq_data_struct * pwsq_data,
    short *ip,               /* image pointer */
    DTT_TABLE *dtt_table,    /*transform table pointer */
    DQT_TABLE *dqt_table,    /* quantization table */
@@ -400,6 +404,8 @@ int huffman_decode_data_mem(
    int mincode[MAX_HUFFBITS+1]; /* used in decoding data */
    int valptr[MAX_HUFFBITS+1];  /* used in decoding data */
    unsigned short tbits;
+   unsigned char code;
+   unsigned char code2;
    int ipc, ipc_mx, ipc_q;   /* image byte count adjustment parameters */
 
 
@@ -409,7 +415,7 @@ int huffman_decode_data_mem(
    bit_count = 0;
    ipc = 0;
    ipc_q = 0;
-   ipc_mx = frm_header_wsq.width * frm_header_wsq.height;
+   ipc_mx = pwsq_data->frm_header_wsq.width * pwsq_data->frm_header_wsq.height;
 
    while(marker != EOI_WSQ) {
 
@@ -425,7 +431,7 @@ int huffman_decode_data_mem(
          if(dqt_table->dqt_def && !ipc_q) {
             for(n = 0; n < 64; n++)
                if(dqt_table->q_bin[n] == 0.0)
-                  ipc_mx -= q_tree[n].lenx*q_tree[n].leny;
+                  ipc_mx -= pwsq_data->q_tree[n].lenx*pwsq_data->q_tree[n].leny;
 
             ipc_q = 1;
          }
@@ -499,35 +505,35 @@ int huffman_decode_data_mem(
          ipc++;
       }
       else if(nodeptr == 101){
-         if((ret = getc_nextbits_wsq(&tbits, &marker, cbufptr, ebufptr,
+         if((ret = getc_nextbits_wsq(&code, &code2, &tbits, &marker, cbufptr, ebufptr,
                                 &bit_count, 8)))
             return(ret);
          *ip++ = tbits;
          ipc++;
       }
       else if(nodeptr == 102){
-         if((ret = getc_nextbits_wsq(&tbits, &marker, cbufptr, ebufptr,
+         if((ret = getc_nextbits_wsq(&code, &code2, &tbits, &marker, cbufptr, ebufptr,
                                 &bit_count, 8)))
             return(ret);
          *ip++ = -tbits;
          ipc++;
       }
       else if(nodeptr == 103){
-         if((ret = getc_nextbits_wsq(&tbits, &marker, cbufptr, ebufptr,
+         if((ret = getc_nextbits_wsq(&code, &code2, &tbits, &marker, cbufptr, ebufptr,
                                 &bit_count, 16)))
             return(ret);
          *ip++ = tbits;
          ipc++;
       }
       else if(nodeptr == 104){
-         if((ret = getc_nextbits_wsq(&tbits, &marker, cbufptr, ebufptr,
+         if((ret = getc_nextbits_wsq(&code, &code2, &tbits, &marker, cbufptr, ebufptr,
                                 &bit_count, 16)))
             return(ret);
          *ip++ = -tbits;
          ipc++;
       }
       else if(nodeptr == 105) {
-         if((ret = getc_nextbits_wsq(&tbits, &marker, cbufptr, ebufptr,
+         if((ret = getc_nextbits_wsq(&code, &code2, &tbits, &marker, cbufptr, ebufptr,
                                 &bit_count, 8)))
             return(ret);
          ipc += tbits;
@@ -543,7 +549,7 @@ int huffman_decode_data_mem(
             *ip++ = 0;
       }
       else if(nodeptr == 106) {
-         if((ret = getc_nextbits_wsq(&tbits, &marker, cbufptr, ebufptr,
+         if((ret = getc_nextbits_wsq(&code, &code2, &tbits, &marker, cbufptr, ebufptr,
                                 &bit_count, 16)))
             return(ret);
          ipc += tbits;
@@ -592,6 +598,8 @@ int huffman_decode_data_file(
    int mincode[MAX_HUFFBITS+1]; /* used in decoding data */
    int valptr[MAX_HUFFBITS+1];  /* used in decoding data */
    unsigned short tbits;
+   unsigned char code;
+   unsigned char code2;
 
 
    if((ret = read_marker_wsq(&marker, TBLS_N_SOB, infp)))
@@ -658,34 +666,34 @@ int huffman_decode_data_file(
             *ip++ = 0; /* z run */
          }
       else if(nodeptr == 101){
-         if((ret = nextbits_wsq(&tbits, &marker, infp, &bit_count, 8)))
+         if((ret = nextbits_wsq(&code, &code2, &tbits, &marker, infp, &bit_count, 8)))
             return(ret);
          *ip++ = tbits;
       }
       else if(nodeptr == 102){
-         if((ret = nextbits_wsq(&tbits, &marker, infp, &bit_count, 8)))
+         if((ret = nextbits_wsq(&code, &code2, &tbits, &marker, infp, &bit_count, 8)))
             return(ret);
          *ip++ = -tbits;
       }
       else if(nodeptr == 103){
-         if((ret = nextbits_wsq(&tbits, &marker, infp, &bit_count, 16)))
+         if((ret = nextbits_wsq(&code, &code2, &tbits, &marker, infp, &bit_count, 16)))
             return(ret);
          *ip++ = tbits;
       }
       else if(nodeptr == 104){
-         if((ret = nextbits_wsq(&tbits, &marker, infp, &bit_count, 16)))
+         if((ret = nextbits_wsq(&code, &code2, &tbits, &marker, infp, &bit_count, 16)))
             return(ret);
          *ip++ = -tbits;
       }
       else if(nodeptr == 105) {
-         if((ret = nextbits_wsq(&tbits, &marker, infp, &bit_count, 8)))
+         if((ret = nextbits_wsq(&code, &code2, &tbits, &marker, infp, &bit_count, 8)))
             return(ret);
          n = tbits;
          while(n--)
             *ip++ = 0;
       }
       else if(nodeptr == 106) {
-         if((ret = nextbits_wsq(&tbits, &marker, infp, &bit_count, 16)))
+         if((ret = nextbits_wsq(&code, &code2, &tbits, &marker, infp, &bit_count, 16)))
             return(ret);
          n = tbits;
          while(n--)
@@ -726,8 +734,10 @@ int decode_data_mem(
    int inx, inx2;       /*increment variables*/
    unsigned short code, tbits;  /* becomes a huffman code word
                                    (one bit at a time)*/
+   unsigned char mycode;
+   unsigned char code2;
 
-   if((ret = getc_nextbits_wsq(&code, marker, cbufptr, ebufptr, bit_count, 1)))
+   if((ret = getc_nextbits_wsq(&mycode, &code2, &code, marker, cbufptr, ebufptr, bit_count, 1)))
       return(ret);
 
    if(*marker != 0){
@@ -736,7 +746,7 @@ int decode_data_mem(
    }
 
    for(inx = 1; (int)code > maxcode[inx]; inx++) {
-      if((ret = getc_nextbits_wsq(&tbits, marker, cbufptr, ebufptr, bit_count, 1)))
+      if((ret = getc_nextbits_wsq(&mycode, &code2, &tbits, marker, cbufptr, ebufptr, bit_count, 1)))
          return(ret);
 
       code = (code << 1) + tbits;
@@ -773,8 +783,10 @@ int decode_data_file(
    int inx, inx2;               /*increment variables*/
    unsigned short code, tbits;  /*becomes a huffman code word
                                   (one bit at a time)*/
+   unsigned char mycode;
+   unsigned char code2;
 
-   if((ret = nextbits_wsq(&code, marker, infp, bit_count, 1)))
+   if((ret = nextbits_wsq(&mycode, &code2, &code, marker, infp, bit_count, 1)))
       return(ret);
 
    if(*marker != 0){
@@ -783,7 +795,7 @@ int decode_data_file(
    }
 
    for(inx = 1; (int)code > maxcode[inx]; inx++) {
-      if((ret = nextbits_wsq(&tbits, marker, infp, bit_count, 1)))
+      if((ret = nextbits_wsq(&mycode, &code2, &tbits, marker, infp, bit_count, 1)))
          return(ret);
 
       code = (code << 1) + tbits;
@@ -803,6 +815,9 @@ int decode_data_file(
 /* Routine to get nextbit(s) of data stream. */
 /*********************************************/
 int nextbits_wsq(
+		unsigned char* pcode,
+		unsigned char* pcode2,
+
    unsigned short *obits,  /* returned bits */
    unsigned short *marker, /* returned marker */
    FILE *file,          /* compressed input data file */
@@ -810,8 +825,6 @@ int nextbits_wsq(
    const int bits_req)  /* number of bits requested */
 {
    int ret;
-   static unsigned char code;   /*next byte of data*/
-   static unsigned char code2;  /*stuffed byte of data*/
    unsigned short bits, tbits;  /*bits of current data byte requested*/
    int bits_needed;     /*additional bits required to finish request*/
 
@@ -820,31 +833,31 @@ int nextbits_wsq(
    static unsigned char bit_mask[9] = {0x00,0x01,0x03,0x07,0x0f,
                                        0x1f,0x3f,0x7f,0xff};
    if(*bit_count == 0) {
-      code = (unsigned char)getc(file);
+      *pcode = (unsigned char)getc(file);
       *bit_count = 8;
-      if(code == 0xFF) {
-         code2 = (unsigned char)getc(file);
-         if(code2 != 0x00 && bits_req == 1) {
-            *marker = (code << 8) | code2;
+      if(*pcode == 0xFF) {
+         *pcode2 = (unsigned char)getc(file);
+         if(*pcode2 != 0x00 && bits_req == 1) {
+            *marker = (*pcode << 8) | *pcode2;
             *obits = 1;
             return(0);
          }
-         if(code2 != 0x00) {
+         if(*pcode2 != 0x00) {
             fprintf(stderr, "ERROR: nextbits_wsq : No stuffed zeros\n");
             return(-38);
          }
       }
    }
    if(bits_req <= *bit_count) {
-      bits = (code >>(*bit_count - bits_req)) & (bit_mask[bits_req]);
+      bits = (*pcode >>(*bit_count - bits_req)) & (bit_mask[bits_req]);
       *bit_count -= bits_req;
-      code &= bit_mask[*bit_count];
+      *pcode &= bit_mask[*bit_count];
    }
    else {
       bits_needed = bits_req - *bit_count;
-      bits = code << bits_needed;
+      bits = *pcode << bits_needed;
       *bit_count = 0;
-      if((ret = nextbits_wsq(&tbits, (unsigned short *)NULL, file,
+      if((ret = nextbits_wsq(pcode, pcode2, &tbits, (unsigned short *)NULL, file,
                           bit_count, bits_needed)))
          return(ret);
       bits |= tbits;
@@ -858,6 +871,8 @@ int nextbits_wsq(
 /* Routine to get nextbit(s) of data stream from memory buffer. */
 /****************************************************************/
 int getc_nextbits_wsq(
+		unsigned char *pcode,
+		unsigned char* pcode2,
    unsigned short *obits,       /* returned bits */
    unsigned short *marker,      /* returned marker */
    unsigned char **cbufptr,     /* points to current byte in input buffer */
@@ -866,8 +881,6 @@ int getc_nextbits_wsq(
    const int bits_req)  /* number of bits requested */
 {
    int ret;
-   static unsigned char code;   /*next byte of data*/
-   static unsigned char code2;  /*stuffed byte of data*/
    unsigned short bits, tbits;  /*bits of current data byte requested*/
    int bits_needed;     /*additional bits required to finish request*/
 
@@ -876,35 +889,35 @@ int getc_nextbits_wsq(
    static unsigned char bit_mask[9] = {0x00,0x01,0x03,0x07,0x0f,
                                        0x1f,0x3f,0x7f,0xff};
    if(*bit_count == 0) {
-      if((ret = getc_byte(&code, cbufptr, ebufptr))){
+      if((ret = getc_byte(pcode, cbufptr, ebufptr))){
          return(ret);
       }
       *bit_count = 8;
-      if(code == 0xFF) {
-         if((ret = getc_byte(&code2, cbufptr, ebufptr))){
+      if(*pcode == 0xFF) {
+         if((ret = getc_byte(pcode2, cbufptr, ebufptr))){
             return(ret);
          }
-         if(code2 != 0x00 && bits_req == 1) {
-            *marker = (code << 8) | code2;
+         if(*pcode2 != 0x00 && bits_req == 1) {
+            *marker = (*pcode << 8) | *pcode2;
             *obits = 1;
             return(0);
          }
-         if(code2 != 0x00) {
+         if(*pcode2 != 0x00) {
             fprintf(stderr, "ERROR: getc_nextbits_wsq : No stuffed zeros\n");
             return(-41);
          }
       }
    }
    if(bits_req <= *bit_count) {
-      bits = (code >>(*bit_count - bits_req)) & (bit_mask[bits_req]);
+      bits = (*pcode >>(*bit_count - bits_req)) & (bit_mask[bits_req]);
       *bit_count -= bits_req;
-      code &= bit_mask[*bit_count];
+      *pcode &= bit_mask[*bit_count];
    }
    else {
       bits_needed = bits_req - *bit_count;
-      bits = code << bits_needed;
+      bits = *pcode << bits_needed;
       *bit_count = 0;
-      if((ret = getc_nextbits_wsq(&tbits, (unsigned short *)NULL, cbufptr,
+      if((ret = getc_nextbits_wsq(pcode, pcode2, &tbits, (unsigned short *)NULL, cbufptr,
                              ebufptr, bit_count, bits_needed)))
          return(ret);
       bits |= tbits;

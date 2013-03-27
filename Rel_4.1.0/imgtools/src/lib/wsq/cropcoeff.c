@@ -123,6 +123,7 @@ void quant_block_sizes2(int *oqsize1, int *oqsize2, int *oqsize3,
 /* of scanning the entire array and copying one element at a time*/
 /*****************************************************************/
 int wsq_crop_qdata(
+		struct wsq_data_struct * pwsq_data,
    const DQT_TABLE *dqt_table, /* quantization table structure   */
    Q_TREE q_tree[], 
    Q_TREE q_tree2[],
@@ -153,8 +154,8 @@ int wsq_crop_qdata(
       data.  Note that q_tree is not touched, so it can still be used to 
       access the uncropped coefficient data. 
    */
-   build_wsq_trees(w_tree, W_TREELEN, q_tree3, Q_TREELEN, ulx, uly);
-   build_wsq_trees(w_tree, W_TREELEN, q_tree2, Q_TREELEN, width, height);
+   build_wsq_trees(pwsq_data->w_tree, W_TREELEN, q_tree3, Q_TREELEN, ulx, uly);
+   build_wsq_trees(pwsq_data->w_tree, W_TREELEN, q_tree2, Q_TREELEN, width, height);
 
    if(dqt_table->dqt_def != 1) {
       fprintf(stderr,
@@ -194,6 +195,7 @@ which intersects actual image area), then *ow / *oh will be returned
 as -1 and odata won't contain wsq compressed data.
 **************************************************************/
 int wsq_cropcoeff_mem(
+		struct wsq_data_struct * pwsq_data,
    unsigned char **odata, /* Cropped WSQ mem */
    int *olen,             /* Cropped WSQ coded length */
    int *ow, int *oh,      /* Actual crop width/height */
@@ -223,12 +225,12 @@ int wsq_cropcoeff_mem(
    else first = 1;
 
    if (first) {
-     if ((ret = wsq_dehuff_mem(&qdata, &width, &height, &scale, &shift, hgt_pos, 
+     if ((ret = wsq_dehuff_mem(pwsq_data, &qdata, &width, &height, &scale, &shift, hgt_pos, 
 		     huff_pos, idata, ilen))) {
        return(ret);
      }
 
-     free_wsq_decoder_resources();
+     free_wsq_decoder_resources(pwsq_data);
      *pqdata = qdata;
      *iw = width;
      *ih = height;
@@ -290,7 +292,7 @@ int wsq_cropcoeff_mem(
    }
 
    /* Crop the wavelet coefficients back */
-   if((ret = wsq_crop_qdata(&dqt_table, q_tree, q_tree2, q_tree3, qdata, ulx, uly, *ow, *oh, qdata2))) {
+   if((ret = wsq_crop_qdata(pwsq_data, &(pwsq_data->dqt_table), pwsq_data->q_tree, q_tree2, q_tree3, qdata, ulx, uly, *ow, *oh, qdata2))) {
        free(qdata2);
        return(ret);
    }
@@ -298,7 +300,7 @@ int wsq_cropcoeff_mem(
    if(debug > 0)
      fprintf(stderr, "Cropped coefficients: UL (%d,%d)  %d x %d\n", ulx,uly,  *ow, *oh);
 
-   if((ret = wsq_huffcode_mem(wsq_data, olen, 
+   if((ret = wsq_huffcode_mem(pwsq_data, wsq_data, olen, 
 		    qdata2, *ow, *oh, 
 		    idata, ilen, *hgt_pos, *huff_pos))){
        free(qdata2);
@@ -333,6 +335,7 @@ int wsq_cropcoeff_mem(
 The bulk of this code is a near copy of parts of wsq_encode_mem.
 ***************************************************************/
 int wsq_huffcode_mem(
+		struct wsq_data_struct * pwsq_data,
      unsigned char *wsq_data, /* Output WSQ memory */
      int *olen,               /* Output WSQ length */
      short *qdata2,           /* Cropped coefficients to encode */
@@ -365,8 +368,8 @@ int wsq_huffcode_mem(
       fprintf(stderr, "SOI, tables, and frame header written\n\n");
 
    /* Compute quantized WSQ subband block sizes */
-   quant_block_sizes2(&qsize1, &qsize2, &qsize3, &dqt_table,
-                           w_tree, W_TREELEN, q_tree2, Q_TREELEN);
+   quant_block_sizes2(&qsize1, &qsize2, &qsize3, &(pwsq_data->dqt_table),
+                           pwsq_data->w_tree, W_TREELEN, q_tree2, Q_TREELEN);
 
    wsq_len = huff_pos;
 
@@ -572,6 +575,7 @@ int wsq_huffcode_mem(
 The bulk of this code is a near copy of parts of wsq_decode_mem.
 ***************************************************************/
 int wsq_dehuff_mem(
+		struct wsq_data_struct * pwsq_data,
    short **pqdata,    /* Returned pointer to quantized coeff data */
    int *iw, int *ih,  /* Dimensions of qdata / image */
    double *scale,     /* r_scale from Frame header */
@@ -592,7 +596,7 @@ int wsq_dehuff_mem(
    int found_dqt, found_dtt;
 
    /* Added by MDG on 02-24-05 */
-   init_wsq_decoder_resources();
+   init_wsq_decoder_resources(pwsq_data);
 
    /* Set memory buffer pointers. */
    cbufptr = idata;
@@ -600,11 +604,11 @@ int wsq_dehuff_mem(
 
    /* Init DHT Tables to 0. */
    for(i = 0; i < MAX_DHT_TABLES; i++)
-      (dht_table + i)->tabdef = 0;
+      (pwsq_data->dht_table + i)->tabdef = 0;
 
    /* Read the SOI marker. */
    if((ret = getc_marker_wsq(&marker, SOI_WSQ, &cbufptr, ebufptr))){
-      free_wsq_decoder_resources();
+      free_wsq_decoder_resources(pwsq_data);
       return(ret);
    }
 
@@ -613,27 +617,27 @@ int wsq_dehuff_mem(
    
    /* Read in supporting tables up to the SOF marker. */
    if((ret = getc_marker_wsq(&marker, TBLS_N_SOF, &cbufptr, ebufptr))){
-      free_wsq_decoder_resources();
+      free_wsq_decoder_resources(pwsq_data);
       return(ret);
    }
    while(marker != SOF_WSQ) {
-      if((ret = getc_table_wsq(marker, &dtt_table, &dqt_table, dht_table,
+      if((ret = getc_table_wsq(marker, &(pwsq_data->dtt_table), &(pwsq_data->dqt_table), pwsq_data->dht_table,
 			      &cbufptr, ebufptr))){
-         free_wsq_decoder_resources();
+         free_wsq_decoder_resources(pwsq_data);
          return(ret);
       }
       if (marker == DQT_WSQ) found_dqt = 1;
       else if (marker == DTT_WSQ) found_dtt = 1;
 
       if((ret = getc_marker_wsq(&marker, TBLS_N_SOF, &cbufptr, ebufptr))){
-         free_wsq_decoder_resources();
+         free_wsq_decoder_resources(pwsq_data);
          return(ret);
       }
    }
 
    /* Read in the Frame Header. */
-   if((ret = getc_frame_header_wsq(&frm_header_wsq, &cbufptr, ebufptr))){
-      free_wsq_decoder_resources();
+   if((ret = getc_frame_header_wsq(&(pwsq_data->frm_header_wsq), &cbufptr, ebufptr))){
+      free_wsq_decoder_resources(pwsq_data);
       return(ret);
    }
 
@@ -641,10 +645,10 @@ int wsq_dehuff_mem(
       since later functions may want to change the contents */
    *hgt_pos = cbufptr-idata - 13;
 
-   width = frm_header_wsq.width;
-   height = frm_header_wsq.height;
-   *scale = frm_header_wsq.r_scale;
-   *shift = frm_header_wsq.m_shift;
+   width = pwsq_data->frm_header_wsq.width;
+   height = pwsq_data->frm_header_wsq.height;
+   *scale = pwsq_data->frm_header_wsq.r_scale;
+   *shift = pwsq_data->frm_header_wsq.m_shift;
    *iw = width;
    *ih = height;
 
@@ -652,7 +656,7 @@ int wsq_dehuff_mem(
       fprintf(stderr, "SOI, tables, and frame header read\n\n");
 
    /* Build WSQ decomposition trees. */
-   build_wsq_trees(w_tree, W_TREELEN, q_tree, Q_TREELEN, width, height);
+   build_wsq_trees(pwsq_data->w_tree, W_TREELEN, pwsq_data->q_tree, Q_TREELEN, width, height);
 
    if(debug > 0)
       fprintf(stderr, "Tables for wavelet decomposition finished\n\n");
@@ -674,13 +678,13 @@ int wsq_dehuff_mem(
    }
    else { /* Continue looking for transform or q-tables */
      if((ret = getc_marker_wsq(&marker, TBLS_N_SOB, &cbufptr, ebufptr))){
-       free_wsq_decoder_resources();
+       free_wsq_decoder_resources(pwsq_data);
        return(ret);
      }
      while(marker != SOB_WSQ && marker != DHT_WSQ) {
-       if((ret = getc_table_wsq(marker, &dtt_table, &dqt_table,
-				dht_table, &cbufptr, ebufptr))){
-	 free_wsq_decoder_resources();
+       if((ret = getc_table_wsq(marker, &(pwsq_data->dtt_table), &(pwsq_data->dqt_table),
+				pwsq_data->dht_table, &cbufptr, ebufptr))){
+	 free_wsq_decoder_resources(pwsq_data);
 	 return(ret);
        }       
        if (marker == DQT_WSQ) found_dqt = 1;
@@ -688,7 +692,7 @@ int wsq_dehuff_mem(
        if (found_dqt && found_dtt) break;
        
        if((ret = getc_marker_wsq(&marker, TBLS_N_SOB, &cbufptr, ebufptr))){
-	 free_wsq_decoder_resources();
+	 free_wsq_decoder_resources(pwsq_data);
 	 return(ret);
        }
      }
@@ -709,16 +713,16 @@ int wsq_dehuff_mem(
    /* Allocate working memory. */
    qdata = (short *) malloc(num_pix * sizeof(short));
    if(qdata == (short *)NULL) {
-      free_wsq_decoder_resources();
+      free_wsq_decoder_resources(pwsq_data);
       fprintf(stderr,"ERROR: wsq_dehuff_mem : malloc : qdata1\n");
       return(-20);
    }
 
    /* Decode the Huffman encoded data blocks. */
-   if((ret = huffman_decode_data_mem(qdata, &dtt_table, &dqt_table, dht_table,
+   if((ret = huffman_decode_data_mem(pwsq_data, qdata, &(pwsq_data->dtt_table), &(pwsq_data->dqt_table), pwsq_data->dht_table,
 				     &cbufptr, ebufptr))){
       free(qdata);
-      free_wsq_decoder_resources();
+      free_wsq_decoder_resources(pwsq_data);
       return(ret);
    }
    /* Compute original huffman coded length */

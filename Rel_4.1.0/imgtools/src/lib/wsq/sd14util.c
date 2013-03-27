@@ -126,6 +126,7 @@ static void q_tree4_wsq14(Q_TREE [], int, int, int, int, int);
 int wsq14_decode_file(unsigned char **odata, int *owidth, int *oheight,
                       int *odepth, int *lossyflag, FILE *infp)
 {
+	struct wsq_data_struct * pwsq_data;
    int ret;
    unsigned short marker;
    int num_pix;
@@ -135,44 +136,44 @@ int wsq14_decode_file(unsigned char **odata, int *owidth, int *oheight,
    short *qdata;
 
    /* Added by MDG on 02-24-05 */
-   init_wsq_decoder_resources();
+   init_wsq_decoder_resources(pwsq_data);
 
    /* Read the SOI_WSQ marker. */
    if((ret = read_marker_wsq(&marker, SOI_WSQ, infp))){
-      free_wsq_decoder_resources();
+      free_wsq_decoder_resources(pwsq_data);
       return(ret);
    }
 
    /* Read in supporting tables up to the SOF_WSQ marker. */
    if((ret = read_marker_wsq(&marker, TBLS_N_SOF, infp))){
-      free_wsq_decoder_resources();
+      free_wsq_decoder_resources(pwsq_data);
       return(ret);
    }
    while(marker != SOF_WSQ) {
-      if((ret = read_table_wsq14(marker, &dtt_table, &dqt_table, dht_table, infp))){
-         free_wsq_decoder_resources();
+      if((ret = read_table_wsq14(marker, &(pwsq_data->dtt_table), &(pwsq_data->dqt_table), pwsq_data->dht_table, infp))){
+         free_wsq_decoder_resources(pwsq_data);
          return(ret);
       }
       if((ret = read_marker_wsq(&marker, TBLS_N_SOF, infp))){
-         free_wsq_decoder_resources();
+         free_wsq_decoder_resources(pwsq_data);
          return(ret);
       }
    }
 
    /* Read in the Frame Header. */
-   if((ret = read_frame_header_wsq(&frm_header_wsq, infp))){
-      free_wsq_decoder_resources();
+   if((ret = read_frame_header_wsq(&(pwsq_data->frm_header_wsq), infp))){
+      free_wsq_decoder_resources(pwsq_data);
       return(ret);
    }
-   width = frm_header_wsq.width;
-   height = frm_header_wsq.height;
+   width = pwsq_data->frm_header_wsq.width;
+   height = pwsq_data->frm_header_wsq.height;
    num_pix = width * height;
 
    if(debug > 0)
       fprintf(stderr, "SOI_WSQ, tables, and frame header read\n\n");
 
    /* Build WSQ decomposition trees. */
-   build_wsq_trees_wsq14(w_tree, W_TREELEN, q_tree, Q_TREELEN, width, height);
+   build_wsq_trees_wsq14(pwsq_data->w_tree, W_TREELEN, pwsq_data->q_tree, Q_TREELEN, width, height);
 
    if(debug > 0)
       fprintf(stderr, "Tables for wavelet decomposition finished\n\n");
@@ -181,15 +182,15 @@ int wsq14_decode_file(unsigned char **odata, int *owidth, int *oheight,
    qdata = (short *) malloc(num_pix * sizeof(short));
    if(qdata == (short *)NULL) {
       fprintf(stderr,"ERROR: wsq_decode_1 : malloc : qdata1\n");
-      free_wsq_decoder_resources();
+      free_wsq_decoder_resources(pwsq_data);
       return(-20);
    }
 
    /* Decode the Huffman encoded data blocks. */
-   if((ret = huffman_decode_data_file_wsq14(qdata, &dtt_table, &dqt_table,
-                                           dht_table, infp))){
+   if((ret = huffman_decode_data_file_wsq14(qdata, &(pwsq_data->dtt_table), &(pwsq_data->dqt_table),
+                                           pwsq_data->dht_table, infp))){
       free(qdata);
-      free_wsq_decoder_resources();
+      free_wsq_decoder_resources(pwsq_data);
       return(ret);
    }
 
@@ -198,10 +199,10 @@ int wsq14_decode_file(unsigned char **odata, int *owidth, int *oheight,
          "Quantized WSQ subband data blocks read and Huffman decoded\n\n");
 
    /* Decode the quantize wavelet subband data. */
-   if((ret = unquantize(&fdata, &dqt_table, q_tree, Q_TREELEN,
+   if((ret = unquantize(&fdata, &(pwsq_data->dqt_table), pwsq_data->q_tree, Q_TREELEN,
                          qdata, width, height))){
       free(qdata);
-      free_wsq_decoder_resources();
+      free_wsq_decoder_resources(pwsq_data);
       return(ret);
    }
 
@@ -211,10 +212,10 @@ int wsq14_decode_file(unsigned char **odata, int *owidth, int *oheight,
    /* Done with quantized wavelet subband data. */
    free(qdata);
 
-   if((ret = wsq_reconstruct(fdata, width, height, w_tree, W_TREELEN,
-                              &dtt_table))){
+   if((ret = wsq_reconstruct(fdata, width, height, pwsq_data->w_tree, W_TREELEN,
+                              &(pwsq_data->dtt_table)))){
       free(fdata);
-      free_wsq_decoder_resources();
+      free_wsq_decoder_resources(pwsq_data);
       return(ret);
    }
 
@@ -224,20 +225,20 @@ int wsq14_decode_file(unsigned char **odata, int *owidth, int *oheight,
    cdata = (unsigned char *)malloc(num_pix * sizeof(unsigned char));
    if(cdata == (unsigned char *)NULL) {
       free(fdata);
-      free_wsq_decoder_resources();
+      free_wsq_decoder_resources(pwsq_data);
       fprintf(stderr,"ERROR: wsq_decode_1 : malloc : cdata\n");
       return(-21);
    }
 
    /* Convert floating point pixels to unsigned char pixels. */
    conv_img_2_uchar(cdata, fdata, width, height,
-                      frm_header_wsq.m_shift, frm_header_wsq.r_scale);
+                      pwsq_data->frm_header_wsq.m_shift, pwsq_data->frm_header_wsq.r_scale);
 
    /* Done with floating point pixels. */
    free(fdata);
 
    /* Added by MDG on 02-24-05 */
-   free_wsq_decoder_resources();
+   free_wsq_decoder_resources(pwsq_data);
 
   if(debug > 0)
       fprintf(stderr, "Doubleing point pixels converted to unsigned char\n\n");
@@ -265,6 +266,7 @@ int wsq14_decode_file(unsigned char **odata, int *owidth, int *oheight,
 /***************************************************************************/
 int wsq14_2_wsq(unsigned char **odata, int *olen, FILE *infp)
 {
+	struct wsq_data_struct * pwsq_data;
    int ret, i;
    unsigned short marker;                 /* WSQ marker */
    int num_pix;                   /* image size and counter */
@@ -294,7 +296,7 @@ int wsq14_2_wsq(unsigned char **odata, int *olen, FILE *infp)
       return(ret);
    }
    while(marker != SOF_WSQ) {
-      if((ret = read_table_wsq14(marker, &dtt_table, &dqt_table, dht_table, infp))){
+      if((ret = read_table_wsq14(marker, &(pwsq_data->dtt_table), &(pwsq_data->dqt_table), pwsq_data->dht_table, infp))){
          return(ret);
       }
       if((ret = read_marker_wsq(&marker, TBLS_N_SOF, infp))){
@@ -303,18 +305,18 @@ int wsq14_2_wsq(unsigned char **odata, int *olen, FILE *infp)
    }
 
    /* Read in the Frame Header. */
-   if((ret = read_frame_header_wsq(&frm_header_wsq, infp))){
+   if((ret = read_frame_header_wsq(&(pwsq_data->frm_header_wsq), infp))){
       return(ret);
    }
-   width = frm_header_wsq.width;
-   height = frm_header_wsq.height;
+   width = pwsq_data->frm_header_wsq.width;
+   height = pwsq_data->frm_header_wsq.height;
    num_pix = width * height;
 
    if(debug > 0)
       fprintf(stderr, "SOI_WSQ, tables, and frame header read\n\n");
 
    /* Build WSQ decomposition trees. */
-   build_shuffle_trees_wsq14(w_tree, W_TREELEN, q_tree, Q_TREELEN,
+   build_shuffle_trees_wsq14(pwsq_data->w_tree, W_TREELEN, pwsq_data->q_tree, Q_TREELEN,
                             q_tree_wsq14, Q_TREELEN, width, height);
 
    if(debug > 0)
@@ -328,7 +330,7 @@ int wsq14_2_wsq(unsigned char **odata, int *olen, FILE *infp)
    }
 
    /* Decode the Huffman encoded data blocks. */
-   if((ret = huffman_decode_data_file_wsq14(qdata, &dtt_table, &dqt_table, dht_table,
+   if((ret = huffman_decode_data_file_wsq14(qdata, &(pwsq_data->dtt_table), &(pwsq_data->dqt_table), pwsq_data->dht_table,
                                   infp))){
       free(qdata);
       return(ret);
@@ -342,17 +344,17 @@ int wsq14_2_wsq(unsigned char **odata, int *olen, FILE *infp)
 /* 2. CONVERT OLD FORMATTED DATA ... */
 /*************************************/
 
-   if((ret = unshuffle_wsq14(&fdata, &dqt_table, q_tree, Q_TREELEN,
+   if((ret = unshuffle_wsq14(&fdata, &(pwsq_data->dqt_table), pwsq_data->q_tree, Q_TREELEN,
                            qdata, width, height))){
       free(qdata);
       return(ret);
    }
    free(qdata);
 
-   if((ret = shuffle_dqt_wsq14(&dqt_table)))
+   if((ret = shuffle_dqt_wsq14(&(pwsq_data->dqt_table))))
       return(ret);
 
-   if((ret = shuffle_wsq14(&qdata, &qsize, dqt_table, q_tree_wsq14, Q_TREELEN,
+   if((ret = shuffle_wsq14(&qdata, &qsize, pwsq_data->dqt_table, q_tree_wsq14, Q_TREELEN,
                          fdata, width, height))){
       free(fdata);
       return(ret);
@@ -364,13 +366,13 @@ int wsq14_2_wsq(unsigned char **odata, int *olen, FILE *infp)
 /***********************************/
 
    for(i = 0; i < MAX_SUBBANDS; i++) {
-      quant_vals.qbss[i] = dqt_table.q_bin[i];
-      quant_vals.qzbs[i] = dqt_table.z_bin[i];
+      pwsq_data->quant_vals.qbss[i] = pwsq_data->dqt_table.q_bin[i];
+      pwsq_data->quant_vals.qzbs[i] = pwsq_data->dqt_table.z_bin[i];
    }
 
    /* Compute quantized WSQ subband block sizes */
-   quant_block_sizes(&qsize1, &qsize2, &qsize3, &quant_vals,
-                           w_tree, W_TREELEN, q_tree, Q_TREELEN);
+   quant_block_sizes(&qsize1, &qsize2, &qsize3, &(pwsq_data->quant_vals),
+                           pwsq_data->w_tree, W_TREELEN, pwsq_data->q_tree, Q_TREELEN);
 
    if(qsize != qsize1+qsize2+qsize3){
       fprintf(stderr,
@@ -409,7 +411,7 @@ int wsq14_2_wsq(unsigned char **odata, int *olen, FILE *infp)
    }
 
    /* Store the quantization parameters to the WSQ buffer. */
-   if((ret = putc_quantization_table(&quant_vals,
+   if((ret = putc_quantization_table(&(pwsq_data->quant_vals),
                                     wsq_data, wsq_alloc, &wsq_len))){
       free(qdata);
       free(wsq_data);
@@ -417,7 +419,7 @@ int wsq14_2_wsq(unsigned char **odata, int *olen, FILE *infp)
    }
 
    /* Store a frame header to the WSQ buffer. */
-   if((ret = putc_frame_header_wsq(width, height, frm_header_wsq.m_shift, frm_header_wsq.r_scale,
+   if((ret = putc_frame_header_wsq(width, height, pwsq_data->frm_header_wsq.m_shift, pwsq_data->frm_header_wsq.r_scale,
                               wsq_data, wsq_alloc, &wsq_len))){
       free(qdata);
       free(wsq_data);
@@ -1097,6 +1099,8 @@ static int huffman_decode_data_file_wsq14(
    int mincode[MAX_HUFFBITS+1];       /* used in decoding data */
    int valptr[MAX_HUFFBITS+1];        /* used in decoding data */
    unsigned short tbits;
+   unsigned char code;
+   unsigned char code2;
 
 
    if((ret = read_marker_wsq(&marker, TBLS_N_SOB, infp)))
@@ -1156,34 +1160,34 @@ static int huffman_decode_data_file_wsq14(
       else if(nodeptr > 106)
          *ip++ = nodeptr - 180;
       else if(nodeptr == 101){
-         if((ret = nextbits_wsq(&tbits, &marker, infp, &bit_count, 8)))
+         if((ret = nextbits_wsq(&code, &code2, &tbits, &marker, infp, &bit_count, 8)))
             return(ret);
          *ip++ = tbits;
       }
       else if(nodeptr == 102){
-         if((ret = nextbits_wsq(&tbits, &marker, infp, &bit_count, 8)))
+         if((ret = nextbits_wsq(&code, &code2, &tbits, &marker, infp, &bit_count, 8)))
             return(ret);
          *ip++ = -tbits;
       }
       else if(nodeptr == 103){
-         if((ret = nextbits_wsq(&tbits, &marker, infp, &bit_count, 16)))
+         if((ret = nextbits_wsq(&code, &code2, &tbits, &marker, infp, &bit_count, 16)))
             return(ret);
          *ip++ = tbits;
       }
       else if(nodeptr == 104){
-         if((ret = nextbits_wsq(&tbits, &marker, infp, &bit_count, 16)))
+         if((ret = nextbits_wsq(&code, &code2, &tbits, &marker, infp, &bit_count, 16)))
             return(ret);
          *ip++ = -tbits;
       }
       else if(nodeptr == 105) {
-         if((ret = nextbits_wsq(&tbits, &marker, infp, &bit_count, 8)))
+         if((ret = nextbits_wsq(&code, &code2, &tbits, &marker, infp, &bit_count, 8)))
             return(ret);
          n = tbits;
          while(n--)
             *ip++ = 0;
       }
       else if(nodeptr == 106) {
-         if((ret = nextbits_wsq(&tbits, &marker, infp, &bit_count, 16)))
+         if((ret = nextbits_wsq(&code, &code2, &tbits, &marker, infp, &bit_count, 16)))
             return(ret);
          n = tbits;
          while(n--)

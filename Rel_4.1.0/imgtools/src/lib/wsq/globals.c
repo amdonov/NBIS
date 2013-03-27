@@ -58,39 +58,6 @@ of the software.
 
 #include <wsq.h>
 
-/*
-int debug;
-*/
-#ifdef TARGET_OS
-   QUANT_VALS quant_vals;
-
-   W_TREE w_tree[W_TREELEN];
-
-   Q_TREE q_tree[Q_TREELEN];
-
-   DTT_TABLE dtt_table;
-
-   DQT_TABLE dqt_table;
-
-   DHT_TABLE dht_table[MAX_DHT_TABLES];
-
-   FRM_HEADER_WSQ frm_header_wsq;
-#else
-   QUANT_VALS quant_vals = {};
-
-   W_TREE w_tree[W_TREELEN] = {};
-
-   Q_TREE q_tree[Q_TREELEN] = {};
-
-   DTT_TABLE dtt_table = {};
-
-   DQT_TABLE dqt_table = {};
-
-   DHT_TABLE dht_table[MAX_DHT_TABLES] = {};
-
-   FRM_HEADER_WSQ frm_header_wsq = {};
-#endif
-
 #ifdef FILTBANK_EVEN_8X8_1
 float hifilt[MAX_HIFILT] =  {
                               0.03226944131446922,

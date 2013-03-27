@@ -82,6 +82,7 @@ int wsq_encode_mem(unsigned char **odata, int *olen, const float r_bitrate,
                    unsigned char *idata, const int w, const int h,
                    const int d, const int ppi, char *comment_text)
 {
+	struct wsq_data_struct * pwsq_data;
    int ret, num_pix;
    float *fdata;                 /* floating point pixel image  */
    float m_shift, r_scale;       /* shift/scale parameters      */
@@ -114,13 +115,13 @@ int wsq_encode_mem(unsigned char **odata, int *olen, const float r_bitrate,
       fprintf(stderr, "Input image pixels converted to floating point\n\n");
 
    /* Build WSQ decomposition trees */
-   build_wsq_trees(w_tree, W_TREELEN, q_tree, Q_TREELEN, w, h);
+   build_wsq_trees(pwsq_data->w_tree, W_TREELEN, pwsq_data->q_tree, Q_TREELEN, w, h);
 
    if(debug > 0)
       fprintf(stderr, "Tables for wavelet decomposition finished\n\n");
 
    /* WSQ decompose the image */
-   if((ret = wsq_decompose(fdata, w, h, w_tree, W_TREELEN,
+   if((ret = wsq_decompose(fdata, w, h, pwsq_data->w_tree, W_TREELEN,
                             hifilt, MAX_HIFILT, lofilt, MAX_LOFILT))){
       free(fdata);
       return(ret);
@@ -130,18 +131,18 @@ int wsq_encode_mem(unsigned char **odata, int *olen, const float r_bitrate,
       fprintf(stderr, "WSQ decomposition of image finished\n\n");
 
    /* Set compression ratio and 'q' to zero. */
-   quant_vals.cr = 0;
-   quant_vals.q = 0.0;
+   pwsq_data->quant_vals.cr = 0;
+   pwsq_data->quant_vals.q = 0.0;
    /* Assign specified r-bitrate into quantization structure. */
-   quant_vals.r = r_bitrate;
+   pwsq_data->quant_vals.r = r_bitrate;
    /* Compute subband variances. */
-   variance(&quant_vals, q_tree, Q_TREELEN, fdata, w, h);
+   variance(&(pwsq_data->quant_vals), pwsq_data->q_tree, Q_TREELEN, fdata, w, h);
 
    if(debug > 0)
       fprintf(stderr, "Subband variances computed\n\n");
 
    /* Quantize the floating point pixmap. */
-   if((ret = quantize(&qdata, &qsize, &quant_vals, q_tree, Q_TREELEN,
+   if((ret = quantize(&qdata, &qsize, &(pwsq_data->quant_vals), pwsq_data->q_tree, Q_TREELEN,
                       fdata, w, h))){
       free(fdata);
       return(ret);
@@ -154,8 +155,8 @@ int wsq_encode_mem(unsigned char **odata, int *olen, const float r_bitrate,
       fprintf(stderr, "WSQ subband decomposition data quantized\n\n");
 
    /* Compute quantized WSQ subband block sizes */
-   quant_block_sizes(&qsize1, &qsize2, &qsize3, &quant_vals,
-                           w_tree, W_TREELEN, q_tree, Q_TREELEN);
+   quant_block_sizes(&qsize1, &qsize2, &qsize3, &(pwsq_data->quant_vals),
+                           pwsq_data->w_tree, W_TREELEN, pwsq_data->q_tree, Q_TREELEN);
 
    if(qsize != qsize1+qsize2+qsize3){
       fprintf(stderr,
@@ -201,7 +202,7 @@ int wsq_encode_mem(unsigned char **odata, int *olen, const float r_bitrate,
    }
 
    /* Store the quantization parameters to the WSQ buffer. */
-   if((ret = putc_quantization_table(&quant_vals,
+   if((ret = putc_quantization_table(&(pwsq_data->quant_vals),
                                     wsq_data, wsq_alloc, &wsq_len))){
       free(qdata);
       free(wsq_data);

@@ -184,15 +184,18 @@ typedef struct header_frm {
    unsigned short software;
 } FRM_HEADER_WSQ;
 
-/* External global variables. */
 extern int debug;
-extern QUANT_VALS quant_vals;
-extern W_TREE w_tree[];
-extern Q_TREE q_tree[];
-extern DTT_TABLE dtt_table;
-extern DQT_TABLE dqt_table;
-extern DHT_TABLE dht_table[];
-extern FRM_HEADER_WSQ frm_header_wsq;
+
+struct wsq_data_struct {
+ QUANT_VALS quant_vals;
+ W_TREE w_tree[W_TREELEN];
+ Q_TREE q_tree[Q_TREELEN];
+ DTT_TABLE dtt_table;
+ DQT_TABLE dqt_table;
+ DHT_TABLE dht_table[MAX_DHT_TABLES];
+ FRM_HEADER_WSQ frm_header_wsq;
+};
+
 extern float hifilt[];
 extern float lofilt[];
 
@@ -201,14 +204,14 @@ extern float lofilt[];
 /* cropcoeff.c */
 extern void quant_block_sizes2(int *, int *, int *, const DQT_TABLE *,
                  W_TREE *, const int, Q_TREE *, const int);
-extern int wsq_crop_qdata(const DQT_TABLE *, Q_TREE *, Q_TREE *, Q_TREE *,
+extern int wsq_crop_qdata(struct wsq_data_struct*, const DQT_TABLE *, Q_TREE *, Q_TREE *, Q_TREE *,
                  short *, int, int, int, int, short *);
-extern int wsq_cropcoeff_mem(unsigned char **, int *, int *, int *, int, int,
+extern int wsq_cropcoeff_mem(struct wsq_data_struct*, unsigned char **, int *, int *, int *, int, int,
                  int, int, int *, int *, unsigned char *, const int, short **,
                  int *, int *);
-extern int wsq_huffcode_mem(unsigned char *, int *, short *, int, int,
+extern int wsq_huffcode_mem(struct wsq_data_struct *, unsigned char *, int *, short *, int, int,
                  unsigned char *, const int, const int, const int);
-extern int wsq_dehuff_mem(short **, int *, int *, double *, double *, 
+extern int wsq_dehuff_mem(struct wsq_data_struct*, short **, int *, int *, double *, double *, 
                  int *, int *, unsigned char *, const int ilen);
 extern int read_wsq_frame_header(unsigned char *, const int, int *, int *,
 				 double *, double *);
@@ -218,7 +221,7 @@ extern int wsq_decode_mem(unsigned char **, int *, int *, int *, int *, int *,
                  unsigned char *, const int);
 extern int wsq_decode_file(unsigned char **, int *, int *, int *, int *,
                  int *, FILE *);
-extern int huffman_decode_data_mem(short *, DTT_TABLE *, DQT_TABLE *,
+extern int huffman_decode_data_mem(struct wsq_data_struct*, short *, DTT_TABLE *, DQT_TABLE *,
                  DHT_TABLE *, unsigned char **, unsigned char *);
 extern int huffman_decode_data_file(short *, DTT_TABLE *, DQT_TABLE *,
                  DHT_TABLE *, FILE *);
@@ -226,9 +229,9 @@ extern int decode_data_mem(int *, int *, int *, int *, unsigned char *,
                  unsigned char **, unsigned char *, int *, unsigned short *);
 extern int decode_data_file(int *, int *, int *, int *, unsigned char *, FILE *,
                  int *, unsigned short *);
-extern int nextbits_wsq(unsigned short *, unsigned short *, FILE *, int *,
+extern int nextbits_wsq(unsigned char*, unsigned char*, unsigned short *, unsigned short *, FILE *, int *,
                  const int);
-extern int getc_nextbits_wsq(unsigned short *, unsigned short *,
+extern int getc_nextbits_wsq(unsigned char*, unsigned char*, unsigned short *, unsigned short *,
                  unsigned char **, unsigned char *, int *, const int);
 
 /* encoder.c */
@@ -332,8 +335,8 @@ extern void  join_lets(float *, float *, const int, const int,
                  float *, const int, const int);
 extern int int_sign(const int);
 extern int image_size(const int, short *, short *);
-extern void init_wsq_decoder_resources(void);
-extern void free_wsq_decoder_resources(void);
+extern void init_wsq_decoder_resources(struct wsq_data_struct*);
+extern void free_wsq_decoder_resources(struct wsq_data_struct*);
 
 extern int delete_comments_wsq(unsigned char **, int *, unsigned char *, int);
 
