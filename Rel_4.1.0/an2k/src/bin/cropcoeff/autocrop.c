@@ -286,6 +286,8 @@ int cropcoeff(unsigned char *idata, int ilen, SEG *segs, int nsgs,
    int iw, ih, nh, nw;
    char *str;
    char *ofile;
+   struct wsq_data_struct * wsq_data;
+   wsq_data = malloc(sizeof(struct wsq_data_struct));
 
    /* Set pointers to NULL so that first call to wsq_cropcoeff_mem decodes
       original data and allocates output memory */
@@ -310,7 +312,7 @@ int cropcoeff(unsigned char *idata, int ilen, SEG *segs, int nsgs,
          continue;
      }
 
-     if ((ret = wsq_cropcoeff_mem(&cdata,&clen,&nw,&nh,ulx,uly,lrx,lry,&iw,&ih,idata,ilen, 
+     if ((ret = wsq_cropcoeff_mem(wsq_data, &cdata,&clen,&nw,&nh,ulx,uly,lrx,lry,&iw,&ih,idata,ilen, 
                   &qdata, &hgt_pos, &huff_pos))) {
        fprintf(stderr, "ERROR: CropCoeff failed on FGP %d and must skip the rest of this image\n\n", fgp);
        if(cdata != NULL)
