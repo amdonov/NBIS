@@ -1,6 +1,6 @@
 Name: NBIS          
 Version: 4.1.0       
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary: NIST Biometric Image Software       
 
 License: Public Domain        
@@ -58,6 +58,9 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Wed Mar 27 2013 Aaron Donovan <amdonov@gmail.com> 4.1.0-6
+- Including overlooked update to header (amdonov@gmail.com)
+
 * Wed Mar 27 2013 Aaron Donovan <amdonov@gmail.com> 4.1.0-5
 - Corrected error with replacement of static variables (amdonov@gmail.com)
 - Updating autocrop to use new wsq API (amdonov@gmail.com)
