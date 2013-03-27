@@ -225,7 +225,7 @@ extern int huffman_decode_data_mem(struct wsq_data_struct*, short *, DTT_TABLE *
                  DHT_TABLE *, unsigned char **, unsigned char *);
 extern int huffman_decode_data_file(short *, DTT_TABLE *, DQT_TABLE *,
                  DHT_TABLE *, FILE *);
-extern int decode_data_mem(int *, int *, int *, int *, unsigned char *,
+extern int decode_data_mem(unsigned char*, unsigned char*, int *, int *, int *, int *, unsigned char *,
                  unsigned char **, unsigned char *, int *, unsigned short *);
 extern int decode_data_file(int *, int *, int *, int *, unsigned char *, FILE *,
                  int *, unsigned short *);
