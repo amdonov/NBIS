@@ -1359,6 +1359,8 @@ void free_wsq_decoder_resources(struct wsq_data_struct * pwsq_data)
       free(pwsq_data->dtt_table.hifilt);
       pwsq_data->dtt_table.hifilt = (float *)NULL;
    }
+
+   free(pwsq_data);
 }
 
 /************************************************************************

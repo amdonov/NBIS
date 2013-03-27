@@ -464,7 +464,7 @@ int huffman_decode_data_mem(
       }
 
       /* get next huffman category code from compressed input data stream */
-      if((ret = decode_data_mem(&nodeptr, mincode, maxcode, valptr,
+      if((ret = decode_data_mem(&code, &code2, &nodeptr, mincode, maxcode, valptr,
                             (dht_table+hufftable_id)->huffvalues,
                             cbufptr, ebufptr, &bit_count, &marker)))
          return(ret);
@@ -716,6 +716,8 @@ int huffman_decode_data_file(
 /* Routine to decode the encoded data from memory buffer. */
 /**********************************************************/
 int decode_data_mem(
+		unsigned char* pcode,
+		unsigned char* pcode2,
    int *onodeptr,       /* returned huffman code category        */
    int *mincode,        /* points to minimum code value for      */
                         /*    a given code length                */
@@ -734,10 +736,8 @@ int decode_data_mem(
    int inx, inx2;       /*increment variables*/
    unsigned short code, tbits;  /* becomes a huffman code word
                                    (one bit at a time)*/
-   unsigned char mycode;
-   unsigned char code2;
 
-   if((ret = getc_nextbits_wsq(&mycode, &code2, &code, marker, cbufptr, ebufptr, bit_count, 1)))
+   if((ret = getc_nextbits_wsq(pcode, pcode2, &code, marker, cbufptr, ebufptr, bit_count, 1)))
       return(ret);
 
    if(*marker != 0){
@@ -746,7 +746,7 @@ int decode_data_mem(
    }
 
    for(inx = 1; (int)code > maxcode[inx]; inx++) {
-      if((ret = getc_nextbits_wsq(&mycode, &code2, &tbits, marker, cbufptr, ebufptr, bit_count, 1)))
+      if((ret = getc_nextbits_wsq(pcode, pcode2, &tbits, marker, cbufptr, ebufptr, bit_count, 1)))
          return(ret);
 
       code = (code << 1) + tbits;
